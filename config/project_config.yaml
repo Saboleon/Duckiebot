@@ -1,0 +1,90 @@
+# =====================================================================
+# Traffic Signs project configuration
+# =====================================================================
+# Everything the agent reads at runtime lives here so it can be tuned
+# live from the dashboard (or by editing this file) without touching code.
+#
+# The AprilTag IDs below were observed in THIS team's Duckietown by running
+# the detector over tasks/object_detection/dataset/raw/*.jpg. Verify them
+# against the physical signs on the bot before the demo.
+#   24, 25, 26 -> STOP (red octagon)        39 -> YIELD (red triangle)
+#   20 -> pedestrian crossing               9 -> side road on the RIGHT
+#   10 -> side road on the LEFT             11 -> T-intersection (road ends)
+# ---------------------------------------------------------------------
+
+# tag id -> sign category
+signs:
+  stop: [24, 25, 26]
+  yield: [39]
+  pedestrian: [20]
+  # intersection signs. The value is the list of turns they permit; at the
+  # intersection the agent picks ONE of these at random (project requirement).
+  t_right: [9] # straight or right
+  t_left: [10] # straight or left
+  t_junction: [11] # left or right (road ends ahead)
+
+# camera / tag geometry (only used for the on-screen distance estimate)
+camera:
+  tag_size_m: 0.065 # physical edge length of the sign tags (~6.5 cm)
+  focal_px: 320.0 # approx rectified focal length at 640x480
+
+# when to react to a sign, measured by the tag's apparent height in pixels.
+# (dataset measured: far ~16px, median ~54px, very close ~123px)
+detection:
+  observe_px: 28 # below this the tag is too far -> note but ignore
+  act_px: 72 # at/above this -> we are AT the intersection
+  every_n_frames: 1 # run tag detection every N camera frames
+
+# wheel speeds, each in [-1, 1].
+# Lane following itself reuses the visual_lane_servoing controller, which is
+# tuned in config/lane_servoing_config.yaml + lane_servoing_hsv_config.yaml.
+# 'cruise' should match that controller's base_speed for identical behaviour;
+# 'approach' is the slower speed used once a sign is in range.
+speed:
+  cruise: 0.20 # a little faster than the visual_lane_servoing base_speed
+  approach: 0.15 # slowed speed once a turn is queued / sign is in range
+
+# colour range used only by the optional obstacle detector (duck/bot ahead)
+lane:
+  yellow_hsv_lo: [20, 60, 60]
+  yellow_hsv_hi: [45, 255, 255]
+
+# stop-line detection (red band on the floor before an intersection)
+stopline:
+  red1_lo: [0, 90, 70]
+  red1_hi: [10, 255, 255]
+  red2_lo: [170, 90, 70]
+  red2_hi: [180, 255, 255]
+  roi_top: 0.65
+  trigger_area_frac: 0.045 # red fraction in the ROI that counts as a line
+
+# right-of-way gating at the stop line, seconds.
+timing:
+  stop_dwell: 2.0 # full stop held at a STOP sign
+  yield_dwell: 0.6 # brief pause at a YIELD sign
+  clear_time: 2.0 # right-of-way: wait for crossing traffic to clear
+
+# turn maneuvers = gradual forward arcs (both wheels move forward), tuned per
+# direction. radius ~ speed/sharpness (smaller sharpness = wider), angle ~
+# sharpness x duration. LEFT is wider/deeper (crosses to the far lane); RIGHT is
+# tighter (less space). MUST be tuned on the real bot.
+turn:
+  creep_s: 0.5 # ease straight into the intersection first (all turns)
+  left:
+    speed: 0.40 # wider arc -> a bit faster
+    sharpness: 0.035 # gentler -> larger radius
+    duration: 2.2 # longer -> sweeps the deeper crossing
+  right:
+    speed: 0.30
+    sharpness: 0.04 # tighter -> smaller radius
+    duration: 1.5
+  straight:
+    speed: 0.35 # clear the intersection briskly
+    duration: 3.5
+
+# obstacle stopping: stop for duckies using the trained object_detection model
+# (tasks/project/models/best.onnx). Runs on a background thread. Set false to
+# disable if it causes false stops on the real bot. Stop thresholds (lane width,
+# proximity) live in tasks/object_detection/packages/stop_activity.py.
+obstacle:
+  enabled: true
