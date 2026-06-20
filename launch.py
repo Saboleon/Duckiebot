@@ -338,10 +338,18 @@ def package_task(task_name):
     task_models_dir = os.path.join(PROJECT_ROOT, 'tasks', task_name, 'models')
     task_server_dir = os.path.join(PROJECT_ROOT, 'servers', task_name)
 
+    tasks_root = os.path.join(PROJECT_ROOT, 'tasks')
+
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
-        print(f"   Adding packages: tasks/{task_name}/packages/")
-        tar.add(task_packages_dir, arcname=f'tasks/{task_name}/packages', filter=no_pycache)
+        # Ship every task's packages/ (code only, no datasets/models) so a task
+        # can reuse code from another task. e.g. the project task imports from
+        # tasks/visual_lane_servoing and tasks/object_detection.
+        for tname in sorted(os.listdir(tasks_root)):
+            pkg = os.path.join(tasks_root, tname, 'packages')
+            if os.path.isdir(pkg):
+                print(f"   Adding packages: tasks/{tname}/packages/")
+                tar.add(pkg, arcname=f'tasks/{tname}/packages', filter=no_pycache)
         if os.path.exists(config_dir):
             print(f"   Adding configs: config/")
             tar.add(config_dir, arcname='config', filter=no_pycache)
