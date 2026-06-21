@@ -119,13 +119,22 @@ class SignDetector:
             out.append(SignObservation(tag_id, sign_type, h, dist, cx, cy, pts))
         return out
 
-    def closest_actionable(self, observations):
-        """The nearest sign that is close enough (height >= act_px) to act on,
-        or None. Nearest == largest apparent tag."""
+    def closest_actionable(self, observations, frame_w=640):
+        """The actionable sign (height >= act_px) that is best-centered in the
+        frame, broken by size.
+
+        Strategy: discard any sign whose centre-x is outside the middle half of
+        the frame (clearly a side-road sign).  Among the remaining, pick the
+        largest (closest).  If nothing survives the zone filter, fall back to
+        the same zone-then-size logic on the full set."""
         actionable = [o for o in observations if o.height_px >= self.act_px]
         if not actionable:
             return None
-        return max(actionable, key=lambda o: o.height_px)
+        center = frame_w / 2.0
+        half   = frame_w / 4.0          # middle-half zone: center ± 25 % of width
+        forward = [o for o in actionable if abs(o.cx - center) <= half]
+        pool    = forward if forward else actionable
+        return max(pool, key=lambda o: o.height_px)
 
     def in_view(self, observations):
         """Nearest sign that is at least within 'observe' range, or None."""

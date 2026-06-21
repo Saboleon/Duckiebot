@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8i7uwrnkxp1d"
-path="res://.godot/imported/parkingsign_parking.png-f4197c39ba6be676db5bc25477d90732.ctex"
+path.s3tc="res://.godot/imported/parkingsign_parking.png-f4197c39ba6be676db5bc25477d90732.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "23b8f14312e05401426b744cad52ce58"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/parkingsign_parking.png"
-dest_files=["res://.godot/imported/parkingsign_parking.png-f4197c39ba6be676db5bc25477d90732.ctex"]
+dest_files=["res://.godot/imported/parkingsign_parking.png-f4197c39ba6be676db5bc25477d90732.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

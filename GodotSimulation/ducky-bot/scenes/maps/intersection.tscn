@@ -1,11 +1,11 @@
-[gd_scene format=3 uid="uid://b1nt3rs3ct10n1"]
+[gd_scene format=3 uid="uid://cop1wybkd0vbk"]
 
 [ext_resource type="PackedScene" uid="uid://by8pqr474iaqj" path="res://scenes/robot/duckie_bot.tscn" id="1_w5h3n"]
 [ext_resource type="Environment" uid="uid://xlfv0dsmbfcm" path="res://Environment.tres" id="2_v5i1m"]
 [ext_resource type="Texture2D" uid="uid://ctpxnl5i08jgn" path="res://textures/leafy_grass_diff_4k.png" id="3_uvbh3"]
 [ext_resource type="Texture2D" uid="uid://dmarl4bfd7bia" path="res://textures/leafy_grass_nor_gl_4k.png" id="4_gi0y1"]
 [ext_resource type="PackedScene" uid="uid://3d3mqjeeyhw6" path="res://scenes/robot/IntroductionBase.tscn" id="5_q1r67"]
-[ext_resource type="Script" path="res://scripts/AprilTagSigns.gd" id="6_tagsign"]
+[ext_resource type="Script" uid="uid://c7ji3jqofcann" path="res://scripts/AprilTagSigns.gd" id="6_tagsign"]
 
 [sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_lqe0e"]
 
@@ -16,70 +16,78 @@ normal_enabled = true
 normal_texture = ExtResource("4_gi0y1")
 uv1_scale = Vector3(60, 60, 60)
 
-[sub_resource type="QuadMesh" id="QuadMesh_sign"]
-size = Vector2(0.25, 0.25)
-
 [sub_resource type="PlaneMesh" id="PlaneMesh_v2526"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_k15ss"]
 size = Vector3(2.0014038, 0.01751709, 1.9967651)
 
-[node name="Project" type="Node3D"]
+[sub_resource type="QuadMesh" id="QuadMesh_sign"]
+size = Vector2(0.08, 0.08)
 
-[node name="DuckieBot" parent="." instance=ExtResource("1_w5h3n")]
+[node name="Project" type="Node3D" unique_id=805980170]
+
+[node name="DuckieBot" parent="." unique_id=1317061997 instance=ExtResource("1_w5h3n")]
 transform = Transform3D(0.99965733, 0, -0.02617695, 0, 1, 0, 0.02617695, 0, 0.99965733, 4.3686967, 0.044506483, 5.252386)
 
-[node name="TopView" type="Camera3D" parent="DuckieBot"]
+[node name="TopView" type="Camera3D" parent="DuckieBot" unique_id=772807150]
 transform = Transform3D(1.0000002, 0, 0, 0, 0.760406, 0.64944804, 0, -0.6494482, 0.7604062, 0, 0.549, 0.679)
 environment = ExtResource("2_v5i1m")
 
-[node name="Terrain" type="Node3D" parent="."]
+[node name="Terrain" type="Node3D" parent="." unique_id=166294733]
 
-[node name="StaticBody3D" type="StaticBody3D" parent="Terrain"]
+[node name="StaticBody3D" type="StaticBody3D" parent="Terrain" unique_id=1540581218]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain/StaticBody3D"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain/StaticBody3D" unique_id=1870349363]
 shape = SubResource("WorldBoundaryShape3D_lqe0e")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=673997788]
 transform = Transform3D(10.057154, 0, 0, 0, 10.057154, 0, 0, 0, 10.057154, 4.9519005, 0, -1.3271989)
 material_override = SubResource("StandardMaterial3D_g70oi")
 mesh = SubResource("PlaneMesh_v2526")
 
-[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D"]
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D" unique_id=576471524]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=47778222]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.0021057427, -0.007904088, -0.00582888)
 shape = SubResource("BoxShape3D_k15ss")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1299072315]
 transform = Transform3D(1, 0, 0, 0, 0.0074698986, 0.9999721, 0, -0.9999721, 0.0074698986, -1.0819607, 10.15756, 0)
 
-[node name="DirectionalLight3D2" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D2" type="DirectionalLight3D" parent="." unique_id=108974162]
 transform = Transform3D(0.6938119, -0.5147703, 0.5036236, 0.08601526, 0.7535541, 0.6517344, -0.7150011, -0.4088617, 0.5671029, 5.9867754, 0.5320841, 5.418177)
 light_color = Color(0.97479993, 0.76028913, 0.58754224, 1)
 light_energy = 0.4
 shadow_enabled = true
 
-[node name="DirectionalLight3D3" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D3" type="DirectionalLight3D" parent="." unique_id=1891078560]
 transform = Transform3D(0.29774472, 0.6048205, -0.738607, 0.0860153, 0.753554, 0.65173435, 0.9507626, -0.25758207, 0.17234287, 4.305622, 0.5320841, 5.418177)
 light_color = Color(0.5755736, 0.85234576, 0.9999997, 1)
 light_energy = 0.202
 shadow_enabled = true
 
-[node name="KiuPathObj" parent="." instance=ExtResource("5_q1r67")]
+[node name="KiuPathObj" parent="." unique_id=38147778 instance=ExtResource("5_q1r67")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2620525, 0.010445523, 4.8696938)
 
-[node name="AprilTagSigns" type="Node3D" parent="."]
+[node name="AprilTagSigns" type="Node3D" parent="." unique_id=126206098]
 script = ExtResource("6_tagsign")
 
-[node name="Tag9_Approach1" type="MeshInstance3D" parent="AprilTagSigns"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.60, 0.20, 4.80)
+[node name="Tag9_Approach1" type="MeshInstance3D" parent="AprilTagSigns" unique_id=974514107]
+transform = Transform3D(0.99897456, 0, 0.04527582, 0, 1, 0, -0.04527582, 0, 0.99897456, 4.609697, 0.12, 3.336548)
 mesh = SubResource("QuadMesh_sign")
 
-[node name="Tag10_Approach2" type="MeshInstance3D" parent="AprilTagSigns"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.60, 0.20, 4.50)
+[node name="Tag9_Approach2" type="MeshInstance3D" parent="AprilTagSigns" unique_id=1883840843]
+transform = Transform3D(0.045275774, 0, -0.99897456, 0, 1, 0, 0.99897456, 0, 0.045275774, 5.8493085, 0.12, 0.92003036)
 mesh = SubResource("QuadMesh_sign")
 
-[node name="Tag11_Approach3" type="MeshInstance3D" parent="AprilTagSigns"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.60, 0.20, 4.20)
+[node name="Tag10_Approach2" type="MeshInstance3D" parent="AprilTagSigns" unique_id=1280078367]
+transform = Transform3D(-0.9999994, 0, 0.0011169612, 0, 1, 0, -0.0011169612, 0, -0.9999994, 5.1709437, 0.12, 2.6943552)
+mesh = SubResource("QuadMesh_sign")
+
+[node name="Tag10_Approach3" type="MeshInstance3D" parent="AprilTagSigns" unique_id=1594429800]
+transform = Transform3D(0.0011170049, 0, 0.9999994, 0, 1, 0, -0.9999994, 0, 0.0011170049, 5.275678, 0.12, 3.3521798)
+mesh = SubResource("QuadMesh_sign")
+
+[node name="Tag11_Approach5" type="MeshInstance3D" parent="AprilTagSigns" unique_id=1166456471]
+transform = Transform3D(0.014380809, 0, -0.9998966, 0, 1, 0, 0.9998966, 0, 0.014380809, 6.5760574, 0.12, 0.9559057)
 mesh = SubResource("QuadMesh_sign")

@@ -25,7 +25,7 @@ signs:
 
 # camera / tag geometry (only used for the on-screen distance estimate)
 camera:
-  tag_size_m: 0.25 # sim sign edge length (0.25 m QuadMesh in Godot)
+  tag_size_m: 0.08 # sim sign edge length (0.08 m QuadMesh in Godot)
   focal_px: 320.0 # approx rectified focal length at 640x480
 
 # when to react to a sign, measured by the tag's apparent height in pixels.
