@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://ctpxnl5i08jgn" path="res://textures/leafy_grass_diff_4k.png" id="3_uvbh3"]
 [ext_resource type="Texture2D" uid="uid://dmarl4bfd7bia" path="res://textures/leafy_grass_nor_gl_4k.png" id="4_gi0y1"]
 [ext_resource type="PackedScene" uid="uid://3d3mqjeeyhw6" path="res://scenes/robot/IntroductionBase.tscn" id="5_q1r67"]
+[ext_resource type="Script" path="res://scripts/AprilTagSigns.gd" id="6_tagsign"]
 
 [sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_lqe0e"]
 
@@ -14,6 +15,9 @@ albedo_texture = ExtResource("3_uvbh3")
 normal_enabled = true
 normal_texture = ExtResource("4_gi0y1")
 uv1_scale = Vector3(60, 60, 60)
+
+[sub_resource type="QuadMesh" id="QuadMesh_sign"]
+size = Vector2(0.25, 0.25)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_v2526"]
 
@@ -64,3 +68,18 @@ shadow_enabled = true
 
 [node name="KiuPathObj" parent="." instance=ExtResource("5_q1r67")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2620525, 0.010445523, 4.8696938)
+
+[node name="AprilTagSigns" type="Node3D" parent="."]
+script = ExtResource("6_tagsign")
+
+[node name="Tag9_Approach1" type="MeshInstance3D" parent="AprilTagSigns"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.60, 0.20, 4.80)
+mesh = SubResource("QuadMesh_sign")
+
+[node name="Tag10_Approach2" type="MeshInstance3D" parent="AprilTagSigns"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.60, 0.20, 4.50)
+mesh = SubResource("QuadMesh_sign")
+
+[node name="Tag11_Approach3" type="MeshInstance3D" parent="AprilTagSigns"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.60, 0.20, 4.20)
+mesh = SubResource("QuadMesh_sign")

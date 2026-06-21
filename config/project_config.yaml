@@ -25,15 +25,20 @@ signs:
 
 # camera / tag geometry (only used for the on-screen distance estimate)
 camera:
-  tag_size_m: 0.065 # physical edge length of the sign tags (~6.5 cm)
+  tag_size_m: 0.25 # sim sign edge length (0.25 m QuadMesh in Godot)
   focal_px: 320.0 # approx rectified focal length at 640x480
 
 # when to react to a sign, measured by the tag's apparent height in pixels.
 # (dataset measured: far ~16px, median ~54px, very close ~123px)
 detection:
-  observe_px: 28 # below this the tag is too far -> note but ignore
-  act_px: 72 # at/above this -> we are AT the intersection
+  observe_px: 15 # below this the tag is too far -> note but ignore
+  act_px: 40 # at/above this -> we are AT the intersection
   every_n_frames: 1 # run tag detection every N camera frames
+
+# seconds a sign must be close (>= act_px) before acting without a red line.
+# lower = reacts sooner when there's no red line; higher = gives the red line more time to trigger.
+# live-tune: key=sign_timeout_s value=3.0
+sign_timeout_s: 12.0
 
 # wheel speeds, each in [-1, 1].
 # Lane following itself reuses the visual_lane_servoing controller, which is
@@ -87,4 +92,4 @@ turn:
 # disable if it causes false stops on the real bot. Stop thresholds (lane width,
 # proximity) live in tasks/object_detection/packages/stop_activity.py.
 obstacle:
-  enabled: true
+  enabled: false

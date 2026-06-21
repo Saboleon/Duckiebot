@@ -108,6 +108,9 @@ def main(camera, wheels, leds, stop_event):
 
     pending_turn = None           # turn queued (by a sign or a button), run at the red line
     pending_src = None            # "sign" or "command" - for the status display
+    pending_since = 0.0           # when pending_turn was set (for no-red-line fallback)
+    stop_sign_since = 0.0         # when a STOP sign was first seen at act distance
+    yield_sign_since = 0.0        # when a YIELD sign was first seen at act distance
     cooldown_until = 0.0          # ignore the stop line again until this time
     frame_i = 0
 
@@ -154,6 +157,7 @@ def main(camera, wheels, leds, stop_event):
             if _force_turn is not None:
                 pending_turn = _consume_force_turn()
                 pending_src = "command"
+                pending_since = now
 
             # ---- queue a turn from a traffic sign (real bot) ----
             # an intersection sign seen before the line decides which way to go
@@ -162,7 +166,21 @@ def main(camera, wheels, leds, stop_event):
                 if sign is not None and sign.is_intersection:
                     pending_turn = random.choice(sign.allowed_turns)
                     pending_src = "sign"
+                    pending_since = now
                     print(f"[project] {sign.sign_type} sign -> queued turn: {pending_turn}")
+
+            # ---- track STOP/YIELD proximity for no-red-line fallback ----
+            close_types = {o.sign_type for o in observations if o.height_px >= signs.act_px}
+            if STOP in close_types:
+                if stop_sign_since == 0.0:
+                    stop_sign_since = now
+            else:
+                stop_sign_since = 0.0
+            if YIELD in close_types:
+                if yield_sign_since == 0.0:
+                    yield_sign_since = now
+            else:
+                yield_sign_since = 0.0
 
             # ---- the red stop line is the trigger: execute the queued turn here ----
             if at_line and now >= cooldown_until:
@@ -171,8 +189,52 @@ def main(camera, wheels, leds, stop_event):
                     wheels, leds_ctl, observations, pending_turn, stop_event)
                 pending_turn = None
                 pending_src = None
+                pending_since = 0.0
+                stop_sign_since = 0.0
+                yield_sign_since = 0.0
                 cooldown_until = time.time() + 4.0
                 _set_status(state="cruise", last=handled)
+                continue
+
+            # ---- no-red-line fallbacks: act on sign proximity alone ----
+            sign_timeout = float(_cfg.get("sign_timeout_s", 4.0))
+
+            if stop_sign_since > 0.0 and now - stop_sign_since > sign_timeout and now >= cooldown_until:
+                print("[project] STOP sign timeout (no red line) -> stopping")
+                _drive(wheels, 0.0, 0.0)
+                leds_ctl.stop()
+                _set_status(state="stop", note="STOP sign (no red line)")
+                timing = _cfg.get("timing", {})
+                _wait(stop_event, float(timing.get("stop_dwell", 2.0)))
+                _wait(stop_event, float(timing.get("clear_time", 2.0)))
+                stop_sign_since = 0.0
+                cooldown_until = time.time() + 4.0
+                _set_status(state="cruise", last="stop(no-line)")
+                continue
+
+            if yield_sign_since > 0.0 and now - yield_sign_since > sign_timeout and now >= cooldown_until:
+                print("[project] YIELD sign timeout (no red line) -> yielding")
+                _drive(wheels, 0.0, 0.0)
+                leds_ctl.yield_()
+                _set_status(state="yield", note="YIELD sign (no red line)")
+                timing = _cfg.get("timing", {})
+                _wait(stop_event, float(timing.get("yield_dwell", 0.6)))
+                yield_sign_since = 0.0
+                cooldown_until = time.time() + 4.0
+                _set_status(state="cruise", last="yield(no-line)")
+                continue
+
+            if pending_turn is not None and pending_since > 0.0 and now - pending_since > sign_timeout and now >= cooldown_until:
+                print(f"[project] intersection timeout (no red line) -> turn: {pending_turn}")
+                _drive(wheels, 0.0, 0.0)
+                handled = _handle_intersection(wheels, leds_ctl, observations, pending_turn, stop_event)
+                pending_turn = None
+                pending_src = None
+                pending_since = 0.0
+                stop_sign_since = 0.0
+                yield_sign_since = 0.0
+                cooldown_until = time.time() + 4.0
+                _set_status(state="cruise", last=f"{handled}(no-line)")
                 continue
 
             # ---- otherwise just follow the lane (slower if a turn is pending) ----

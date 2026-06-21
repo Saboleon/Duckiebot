@@ -7,10 +7,12 @@ following (and the turn maneuvers) before deploying to hardware.
   python launch.py --sim --task project
 
 Notes:
-  * The simulation signs carry NO AprilTags, so sign *recognition* cannot be
-    tested here - that needs the real bot. Lane following and the turn maneuvers
-    can. Trigger a turn manually from the dashboard "Send Command" box with
-    key `force_turn`, value `left` / `right` / `straight`.
+  * Three AprilTag signs (tag36h11, IDs 9/10/11) are placed along the road in
+    intersection.tscn so sign recognition can be tested in sim. Each sign face
+    points toward the bot's approach direction. Adjust positions in the Godot
+    editor (node AprilTagSigns/*) if the bot doesn't see them clearly.
+  * `force_turn` (key) with value `left`/`right`/`straight` still works as a
+    manual override from the dashboard "Send Command" box.
   * `pause` / `resume` (as a command key) hold or release the motors.
 """
 
