@@ -77,7 +77,7 @@ turn:
   creep_s: 1.2 # ease straight into the intersection first (all turns)
   left:
     creep_s: 1.85 # left crosses to far lane, needs more run-in
-    creep_lean: 0.03 # slight left bias during creep to cancel rightward drift
+    creep_lean: 0.0
     speed: 0.40 # wider arc -> a bit faster
     sharpness: 0.06 # gentler -> larger radius
     duration: 3.2 # longer -> sweeps the deeper crossing

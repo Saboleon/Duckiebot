@@ -316,11 +316,11 @@ current = true
 curve = SubResource("Curve3D_xdp4q")
 
 [node name="PathFollower" type="PathFollow3D" parent="NPCPath" unique_id=1750397961]
-transform = Transform3D(1, 0, 0, 0, 0.97799283, 0.20863852, 0, -0.20863852, 0.97799283, 8.232, 0.155, 3.3)
+transform = Transform3D(0.99999195, 0, 0, 0, 0.97794765, 0.20863688, 0, -0.20862888, 0.97798514, 8.232, 0.155, 3.3)
 script = ExtResource("11_ucdee")
 
 [node name="DuckieBot_NPC" parent="NPCPath/PathFollower" unique_id=95641081 instance=ExtResource("12_3bncg")]
-transform = Transform3D(1, 0, 0, 0, 0.99998516, 0.005462855, 0, -0.005462855, 0.99998516, 0, 0.021089435, 0.004499674)
+transform = Transform3D(0.9999999, 0, 0, 0, 0.97444475, -0.22462796, 0, 0.22462796, 0.9744446, 0, 0.007049799, 0.0015046597)
 
 [node name="Sun" type="DirectionalLight3D" parent="." unique_id=1159425448]
 transform = Transform3D(0.8660254, -0.4829629, 0.12940954, 0, 0.25881907, 0.9659258, -0.5, -0.83651626, 0.22414389, 4.8, 20, 4.8)
