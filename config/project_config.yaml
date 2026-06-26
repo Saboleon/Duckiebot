@@ -32,13 +32,13 @@ camera:
 # (dataset measured: far ~16px, median ~54px, very close ~123px)
 detection:
   observe_px: 15 # below this the tag is too far -> note but ignore
-  act_px: 40 # at/above this -> we are AT the intersection
+  act_px: 70 # at/above this -> we are AT the intersection
   every_n_frames: 1 # run tag detection every N camera frames
 
 # seconds a sign must be close (>= act_px) before acting without a red line.
 # lower = reacts sooner when there's no red line; higher = gives the red line more time to trigger.
 # live-tune: key=sign_timeout_s value=3.0
-sign_timeout_s: 12.0
+sign_timeout_s: 30.0
 
 # wheel speeds, each in [-1, 1].
 # Lane following itself reuses the visual_lane_servoing controller, which is
@@ -61,35 +61,37 @@ stopline:
   red2_lo: [170, 90, 70]
   red2_hi: [180, 255, 255]
   roi_top: 0.65
-  trigger_area_frac: 0.045 # red fraction in the ROI that counts as a line
+  trigger_area_frac: 0.09 # red fraction in the ROI that counts as a line
 
 # right-of-way gating at the stop line, seconds.
 timing:
-  stop_dwell: 2.0 # full stop held at a STOP sign
-  yield_dwell: 0.6 # brief pause at a YIELD sign
-  clear_time: 2.0 # right-of-way: wait for crossing traffic to clear
+  stop_dwell: 0.5 # full stop held at a STOP sign
+  yield_dwell: 0.4 # brief pause at a YIELD sign
+  clear_time: 0.5 # right-of-way: wait for crossing traffic to clear
 
 # turn maneuvers = gradual forward arcs (both wheels move forward), tuned per
 # direction. radius ~ speed/sharpness (smaller sharpness = wider), angle ~
 # sharpness x duration. LEFT is wider/deeper (crosses to the far lane); RIGHT is
 # tighter (less space). MUST be tuned on the real bot.
 turn:
-  creep_s: 0.5 # ease straight into the intersection first (all turns)
+  creep_s: 1.2 # ease straight into the intersection first (all turns)
   left:
+    creep_s: 1.85 # left crosses to far lane, needs more run-in
+    creep_lean: 0.03 # slight left bias during creep to cancel rightward drift
     speed: 0.40 # wider arc -> a bit faster
-    sharpness: 0.035 # gentler -> larger radius
-    duration: 2.2 # longer -> sweeps the deeper crossing
+    sharpness: 0.06 # gentler -> larger radius
+    duration: 3.2 # longer -> sweeps the deeper crossing
   right:
     speed: 0.30
     sharpness: 0.04 # tighter -> smaller radius
     duration: 1.5
   straight:
-    speed: 0.35 # clear the intersection briskly
-    duration: 3.5
+    speed: 0.28 # clear the intersection briskly
+    duration: 2.2
 
 # obstacle stopping: stop for duckies using the trained object_detection model
 # (tasks/project/models/best.onnx). Runs on a background thread. Set false to
 # disable if it causes false stops on the real bot. Stop thresholds (lane width,
 # proximity) live in tasks/object_detection/packages/stop_activity.py.
 obstacle:
-  enabled: false
+  enabled: true

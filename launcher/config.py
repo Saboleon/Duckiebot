@@ -18,11 +18,7 @@ GODOT_SCENES = {
     'modcon': 'res://scenes/maps/Modconpath.tscn',
     'navigator': 'res://scenes/maps/map_follower.tscn',
     'object_detection': 'res://scenes/maps/lane_detect.tscn',
-    # traffic-signs project: a 4-way intersection of lane tiles, for testing
-    # lane following up to an intersection + turn maneuvers (sim signs have no
-    # AprilTags, so turns are triggered by the 'force_turn' dashboard command).
-    # To test plain lane following instead, switch this to lane_follower.tscn.
-    'project': 'res://scenes/maps/intersection.tscn',
+    'project': 'res://scenes/maps/project.tscn',
 }
 
 DEFAULT_WEB_PORT = 5000

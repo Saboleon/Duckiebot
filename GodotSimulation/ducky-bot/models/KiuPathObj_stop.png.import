@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cs7tscyv1sixl"
-path="res://.godot/imported/KiuPathObj_stop.png-ebc9f736a9c50a176e5b23ae84053e61.ctex"
+path.s3tc="res://.godot/imported/KiuPathObj_stop.png-ebc9f736a9c50a176e5b23ae84053e61.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "b924482727981f30cc7704b5fc50444f"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/KiuPathObj_stop.png"
-dest_files=["res://.godot/imported/KiuPathObj_stop.png-ebc9f736a9c50a176e5b23ae84053e61.ctex"]
+dest_files=["res://.godot/imported/KiuPathObj_stop.png-ebc9f736a9c50a176e5b23ae84053e61.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

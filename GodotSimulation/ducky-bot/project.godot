@@ -30,6 +30,12 @@ window/vsync/vsync_mode=0
 
 project/assembly_name="Ducky Bot"
 
+[importer_defaults]
+
+texture={
+&"detect_3d/compress_to": 0
+}
+
 [input]
 
 move_forward={

@@ -322,16 +322,18 @@ def _execute_turn(wheels, leds_ctl, turn, stop_event):
     moving forward; `sharpness` is the small speed difference between them
     (radius ~ speed/sharpness, angle ~ sharpness x duration)."""
     tcfg = _cfg.get("turn", {})
-    creep_s = float(tcfg.get("creep_s", 0.5))
 
     p = tcfg.get(turn, {}) or {}
     speed     = float(p.get("speed", 0.30))
     duration  = float(p.get("duration", 1.8))
     sharpness = float(p.get("sharpness", 0.05))   # unused for straight
+    creep_s   = float(p.get("creep_s", tcfg.get("creep_s", 0.5)))
 
-    # ease straight into the intersection first
+    # ease into the intersection first; left turn gets a slight left lean during
+    # creep to counteract the rightward drift that builds up at equal wheel speeds
     leds_ctl.cruise()
-    _drive(wheels, speed, speed)
+    creep_lean = float(p.get("creep_lean", 0.0))
+    _drive(wheels, speed - creep_lean, speed + creep_lean)
     if not _wait(stop_event, creep_s):
         _drive(wheels, 0.0, 0.0)
         return

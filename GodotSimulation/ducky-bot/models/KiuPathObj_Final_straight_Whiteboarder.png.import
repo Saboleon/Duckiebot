@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bed5rwi4l18d2"
-path="res://.godot/imported/KiuPathObj_Final_straight_Whiteboarder.png-52238c1a9d679b64744e2a844aaa5ed6.ctex"
+path.s3tc="res://.godot/imported/KiuPathObj_Final_straight_Whiteboarder.png-52238c1a9d679b64744e2a844aaa5ed6.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f61bc10766c6c57e05ca6b2461fb067c"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/KiuPathObj_Final_straight_Whiteboarder.png"
-dest_files=["res://.godot/imported/KiuPathObj_Final_straight_Whiteboarder.png-52238c1a9d679b64744e2a844aaa5ed6.ctex"]
+dest_files=["res://.godot/imported/KiuPathObj_Final_straight_Whiteboarder.png-52238c1a9d679b64744e2a844aaa5ed6.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
