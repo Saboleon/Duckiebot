@@ -42,6 +42,7 @@ class ObstacleStopper:
         self.lane_x_min_frac = float(ocfg.get("lane_x_min_frac", 0.30))
         self.blocked = False
         self.reason = ""
+        self.blocked_is_duck = False   # True if the current block is a duck (permanent stop)
 
         # right-of-way: which detections count as crossing traffic, and the
         # vertical band of the frame to watch for them (used by yield/stop).
@@ -111,10 +112,11 @@ class ObstacleStopper:
                 continue
             if dets is None:                         # frame skipped by the agent
                 continue
-            blocked, reason = self._evaluate(dets, size)
+            blocked, reason, is_duck = self._evaluate(dets, size)
             with self._lock:
                 self.blocked = blocked
                 self.reason = reason
+                self.blocked_is_duck = is_duck
                 self._dets = dets
                 self._size = size
 
@@ -176,12 +178,15 @@ class ObstacleStopper:
         return frame
 
     def _evaluate(self, dets, size):
-        """Stop if any duckie is close ahead AND in our lane.
+        """Stop if any duckie/car is close ahead AND in our lane. Returns
+        (blocked, reason, is_duck). `is_duck` lets the agent treat a duck as a
+        permanent stop (never moves) but a car as a temporary one (may be parked
+        at a line, so the agent can creep past it after a timeout).
 
         Three filters before triggering a stop:
-          1. y2 > stop_y_frac  — duck must be low enough (close enough) in frame.
+          1. y2 > stop_y_frac  — object must be low enough (close enough) in frame.
           2. bbox height > min_height_frac — filters tiny/far-away detections.
-          3. center_x > lane_x_min_frac — ignores ducks clearly in oncoming lane.
+          3. center_x > lane_x_min_frac — ignores objects clearly in oncoming lane.
         """
         stop_y    = size * self.stop_y_frac
         min_h     = size * self.min_height_frac
@@ -194,12 +199,19 @@ class ObstacleStopper:
             if cx < lane_x:
                 continue        # in oncoming lane
             if y2 > stop_y:
-                return True, "duckie detected ahead"
-        return False, ""
+                is_duck = (cls_id == 0)
+                what = "duckie" if is_duck else "vehicle"
+                return True, f"{what} detected ahead", is_duck
+        return False, "", False
 
     def status(self):
         with self._lock:
             return self.blocked, self.reason
+
+    def is_duck_block(self):
+        """True when the current obstacle is a duck (should stop until removed)."""
+        with self._lock:
+            return self.blocked and self.blocked_is_duck
 
     def stop(self):
         self._stop_event.set()

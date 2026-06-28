@@ -237,22 +237,24 @@ def main(camera, wheels, leds, stop_event, sim=False):
             at_line, line_frac = stopline.detect(frame)
             now = time.time()
 
-            # ---- obstacle overrides everything (but not forever) ----
-            # A stopped car/duck ahead halts us; after max_block_s of being stuck
-            # we creep forward so a parked obstacle can never freeze us for good.
+            # ---- obstacle overrides everything ----
+            # A DUCK is a permanent stop: hold until it's removed/clears (ducks
+            # don't move). A CAR may be parked at a line, so after max_block_s of
+            # being stuck behind one we creep past instead of freezing forever.
             max_block_s = float(_cfg.get("obstacle", {}).get("max_block_s", 4.0))
             if blocked:
                 if blocked_since == 0.0:
                     blocked_since = now
-                if now - blocked_since < max_block_s:
+                is_duck = obstacle.is_duck_block()
+                if is_duck or (now - blocked_since < max_block_s):
                     leds_ctl.hazard()
                     _drive(wheels, 0.0, 0.0)
                     _set_status(state="obstacle", note=block_reason or "obstacle ahead",
                                 waited=round(now - blocked_since, 1))
-                    _annotate(signs, lane, frame, observations, {}, "obstacle: stopped ahead")
+                    _annotate(signs, lane, frame, observations, {}, f"obstacle: {block_reason}")
                     continue
-                # waited long enough — obstacle isn't moving, ease past it
-                _set_status(state="obstacle", note="blocked too long -> creeping past")
+                # car stuck too long — ease past it
+                _set_status(state="obstacle", note="vehicle blocking too long -> creeping past")
                 # fall through to normal lane following (creeps via lane logic)
             else:
                 blocked_since = 0.0
@@ -680,6 +682,7 @@ class _DummyObstacle:
     enabled = False
     def start(self, camera): pass
     def status(self): return False, ""
+    def is_duck_block(self): return False
     def traffic_present(self): return False
     def draw(self, frame): return frame
     def stop(self): pass
