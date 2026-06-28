@@ -215,12 +215,13 @@ class GodotCameraDriver(CameraDriverAbs):
         print("Camera stopped")
 
     def read(self) -> Tuple[bool, Optional[np.ndarray]]:
-        """Return the latest frame using _frame_condition (not _frame_lock)."""
+        """Block until a new frame arrives (mirrors _capture_frame throttling)."""
         if not self._running:
             return False, None
         with self._frame_condition:
-            if self._latest_frame is None:
-                self._frame_condition.wait(timeout=0.5)
+            if not self._recv_running and self._latest_frame is None:
+                return False, None
+            self._frame_condition.wait(timeout=1.0)
             if self._latest_frame is None:
                 return False, None
             return True, self._latest_frame.copy()
