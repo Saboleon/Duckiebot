@@ -25,6 +25,7 @@ script_dir   = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(script_dir, '..', '..')
 sys.path.insert(0, project_root)
 
+import cv2
 from flask import Flask, Response, jsonify, request
 
 from duckiebot.camera_driver.godot_camera_driver import GodotCameraDriver, GodotCameraConfig
@@ -147,6 +148,22 @@ def switch_scene():
     if wheels:
         wheels.change_scene(GODOT_SCENES[target])
     return jsonify({'scene': target})
+
+
+@app.route('/snapshot')
+def snapshot():
+    overlay = agent.get_overlay(max_age=0.3)
+    if overlay is None and camera is not None:
+        ok, frame = camera.read()
+        if ok and frame is not None:
+            overlay = frame
+    if overlay is None:
+        return '', 204
+    ret, jpeg = cv2.imencode('.jpg', overlay, [cv2.IMWRITE_JPEG_QUALITY, 60])
+    if not ret:
+        return '', 204
+    return Response(jpeg.tobytes(), mimetype='image/jpeg',
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate'})
 
 
 @app.route('/shutdown')

@@ -77,6 +77,22 @@ def command():
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
+@app.route('/snapshot')
+def snapshot():
+    overlay = agent.get_overlay()
+    if overlay is None and camera is not None:
+        ok, frame = camera.read()
+        if ok and frame is not None:
+            overlay = frame
+    if overlay is None:
+        return '', 204
+    ret, jpeg = cv2.imencode('.jpg', overlay, [cv2.IMWRITE_JPEG_QUALITY, 70])
+    if not ret:
+        return '', 204
+    return Response(jpeg.tobytes(), mimetype='image/jpeg',
+                    headers={'Cache-Control': 'no-cache, no-store, must-revalidate'})
+
+
 @app.route('/shutdown')
 def shutdown():
     shutdown_cleanup(wheels, camera, stop_event)

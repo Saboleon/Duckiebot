@@ -3,7 +3,7 @@ from .base import render_template
 _CONTENT = '''
     <div class="container">
         <div class="video-section">
-            <img src="/video" class="stream" id="videoStream">
+            <img id="videoStream" class="stream">
         </div>
 
         <div class="controls-section">
@@ -140,6 +140,18 @@ document.getElementById('cmdValue').addEventListener('keydown', e => {
 
 refreshStatus();
 setInterval(refreshStatus, 500);
+
+// Poll /snapshot every 80ms instead of MJPEG — more reliable on real hardware
+(function pollVideo() {
+    const img = document.getElementById('videoStream');
+    const next = new Image();
+    next.onload = function() {
+        img.src = this.src;
+        setTimeout(pollVideo, 80);
+    };
+    next.onerror = function() { setTimeout(pollVideo, 500); };
+    next.src = '/snapshot?' + Date.now();
+})();
 '''
 
 
