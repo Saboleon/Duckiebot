@@ -22,7 +22,7 @@ _CONTENT = '''
             </div>
 
             <div class="card">
-                <div class="card-header">Drive Controls</div>
+                <div class="card-header">Intersection (queues for next sign)</div>
                 <div style="display:flex;gap:6px;">
                     <button class="button" onclick="sendTurn('left')">&#8592; Turn Left</button>
                     <button class="button" onclick="sendTurn('right')">Turn Right &#8594;</button>
@@ -35,6 +35,31 @@ _CONTENT = '''
                 <!--RESET-->
                 <!--REMOVE_DUCK-->
                 <div id="driveStatus" class="status"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Manual Drive (hold to move, WASD / arrows)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;max-width:180px;margin:0 auto;">
+                    <div></div>
+                    <button class="button" id="btn-fwd"
+                        onmousedown="startDrive(0.28,0.28)" onmouseup="stopDrive()"
+                        ontouchstart="startDrive(0.28,0.28)" ontouchend="stopDrive()">&#8593;</button>
+                    <div></div>
+                    <button class="button" id="btn-left"
+                        onmousedown="startDrive(0.05,0.28)" onmouseup="stopDrive()"
+                        ontouchstart="startDrive(0.05,0.28)" ontouchend="stopDrive()">&#8592;</button>
+                    <button class="button danger" id="btn-stop"
+                        onmousedown="stopDrive()" ontouchstart="stopDrive()">&#9632;</button>
+                    <button class="button" id="btn-right"
+                        onmousedown="startDrive(0.28,0.05)" onmouseup="stopDrive()"
+                        ontouchstart="startDrive(0.28,0.05)" ontouchend="stopDrive()">&#8594;</button>
+                    <div></div>
+                    <button class="button" id="btn-bwd"
+                        onmousedown="startDrive(-0.22,-0.22)" onmouseup="stopDrive()"
+                        ontouchstart="startDrive(-0.22,-0.22)" ontouchend="stopDrive()">&#8595;</button>
+                    <div></div>
+                </div>
+                <div id="manualStatus" class="status"></div>
             </div>
 
             <div class="card">
@@ -140,6 +165,35 @@ document.getElementById('cmdValue').addEventListener('keydown', e => {
 
 refreshStatus();
 setInterval(refreshStatus, 500);
+
+// Manual drive
+function startDrive(l, r) {
+    postJSON('/command', {key: 'drive', value: l + ',' + r})
+        .then(rsp => showStatus('manualStatus', rsp.message || 'driving', 'success'))
+        .catch(e  => showStatus('manualStatus', 'Error: ' + e, 'error'));
+}
+function stopDrive() {
+    postJSON('/command', {key: 'drive_stop', value: ''})
+        .catch(() => {});
+    showStatus('manualStatus', 'stopped', '');
+}
+// Keyboard WASD / arrows
+const _keys = {};
+document.addEventListener('keydown', e => {
+    if (_keys[e.key]) return;
+    _keys[e.key] = true;
+    const spd = 0.28, turn = 0.05;
+    if (e.key === 'w' || e.key === 'ArrowUp')    startDrive(spd,  spd);
+    if (e.key === 's' || e.key === 'ArrowDown')  startDrive(-0.22, -0.22);
+    if (e.key === 'a' || e.key === 'ArrowLeft')  startDrive(turn, spd);
+    if (e.key === 'd' || e.key === 'ArrowRight') startDrive(spd,  turn);
+    if (e.key === ' ') stopDrive();
+});
+document.addEventListener('keyup', e => {
+    delete _keys[e.key];
+    if (['w','s','a','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))
+        stopDrive();
+});
 
 // Poll /snapshot every 80ms instead of MJPEG — more reliable on real hardware
 (function pollVideo() {

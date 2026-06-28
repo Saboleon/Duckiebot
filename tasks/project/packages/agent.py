@@ -47,6 +47,7 @@ _obstacle = None         # ObstacleStopper ref, so the overlay can draw detectio
 _cfg = {}                # live config (mutable via apply_command)
 _paused = False          # when True the agent holds still (sim convenience)
 _force_turn = None       # set to "left"/"right"/"straight" to trigger one turn
+_manual_wheels = None    # (left, right) set by 'drive' command; None = autonomous
 
 
 def get_status():
@@ -79,13 +80,16 @@ def apply_command(key, value):
     Control keys: 'pause'/'resume' (hold or release the motors) and
     'force_turn' = left|right|straight (manually trigger one turn maneuver -
     handy in the simulator, which has no AprilTags to react to).
+    Manual drive: 'drive' = 'left,right' (e.g. '0.3,0.3') sets wheel speeds
+    directly; 'drive_stop' clears manual drive and returns to autonomous.
     Anything else is treated as a dotted config path, e.g.
     'speed.cruise' -> 0.4, or 'obstacle.enabled' -> true."""
-    global _force_turn
+    global _force_turn, _manual_wheels
     k = key.strip().lower()
     if k in ("pause", "stop_driving"):
         return f"paused = {set_paused(True)}"
     if k in ("resume", "go"):
+        _manual_wheels = None
         return f"paused = {set_paused(False)}"
     if k == "force_turn":
         turn = str(value).strip().lower()
@@ -93,6 +97,17 @@ def apply_command(key, value):
             raise ValueError("force_turn must be left, right or straight")
         _force_turn = turn
         return f"force_turn queued: {turn}"
+    if k == "drive":
+        parts = str(value).split(',')
+        if len(parts) == 2:
+            l = max(-1.0, min(1.0, float(parts[0])))
+            r = max(-1.0, min(1.0, float(parts[1])))
+            _manual_wheels = (l, r)
+            return f"manual drive: l={l:.2f} r={r:.2f}"
+        raise ValueError("drive value must be 'left,right' e.g. '0.3,0.3'")
+    if k in ("drive_stop", "manual_stop"):
+        _manual_wheels = None
+        return "manual drive cleared"
 
     parsed = _parse_value(value)
     node = _cfg
@@ -169,6 +184,16 @@ def main(camera, wheels, leds, stop_event, sim=False):
                 continue
             frame_i += 1
 
+            # manual drive: bypass the autonomous agent entirely
+            if _manual_wheels is not None:
+                l, r = _manual_wheels
+                _drive(wheels, l, r)
+                leds_ctl.off()
+                _set_status(state="manual", left=round(l, 2), right=round(r, 2))
+                _annotate(signs, lane, frame, [], {}, f"manual  L={l:.2f} R={r:.2f}")
+                time.sleep(0.02)
+                continue
+
             # paused: hold still but keep the video/overlay alive
             if _paused:
                 _drive(wheels, 0.0, 0.0)
@@ -197,12 +222,15 @@ def main(camera, wheels, leds, stop_event, sim=False):
                 _annotate(signs, lane, frame, observations, {}, "obstacle: duckie ahead")
                 continue
 
-            # ---- queue a turn from a button press (force_turn command) ----
+            # ---- force_turn command: execute immediately (don't wait for red line) ----
             if _force_turn is not None:
-                pending_turn = _consume_force_turn()
-                pending_src = "command"
-                pending_since = now
-                pending_gate = None          # manual turn: no yield/stop gating
+                forced = _consume_force_turn()
+                print(f"[project] force_turn: {forced} — executing now")
+                _drive(wheels, 0.0, 0.0)
+                _execute_turn(wheels, leds_ctl, obstacle, forced, stop_event)
+                cooldown_until = time.time() + 4.0
+                _set_status(state="cruise", last=f"manual:{forced}")
+                continue
 
             # ---- queue a turn from a traffic sign (real bot) ----
             # an intersection sign seen before the line decides which way to go
