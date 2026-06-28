@@ -52,10 +52,10 @@ stopline:
   trigger_area_frac: 0.09
 
 timing:
-  stop_dwell: 0.7
-  yield_dwell: 0.5
-  clear_time: 1.0
-  yield_max_wait: 10.0
+  stop_dwell: 0.5
+  yield_dwell: 0.4
+  clear_time: 0.8
+  yield_max_wait: 5.0
 
 turn:
   creep_s: 1.2
@@ -84,5 +84,5 @@ yield_traffic:
   enabled: true
   classes: []
   min_score: 0.5
-  zone_top_frac: 0.20     # watch a wider vertical band for crossing traffic (was 0.30)
-  zone_bottom_frac: 0.85
+  zone_top_frac: 0.25    # only watch the middle band — avoids detecting cars stopped at our own line
+  zone_bottom_frac: 0.65
