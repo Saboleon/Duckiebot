@@ -8,7 +8,7 @@ script_dir   = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.join(script_dir, '..', '..')
 sys.path.insert(0, project_root)
 
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 import numpy as np
 import cv2
 
@@ -18,6 +18,7 @@ from duckiebot.wheel_driver.wheels_driver_abs import WheelPWMConfiguration
 from duckiebot.led_driver import LEDDriver
 from launcher.ports import find_available_port
 from servers.common import make_frame_generator, shutdown_cleanup, suppress_http_logs
+from servers.templates.project import get_template
 
 import tasks.project.packages.agent as agent
 
@@ -40,10 +41,33 @@ def _visualize(frame):
 generate_frames = make_frame_generator(lambda: camera, _visualize, quality=70, rgb=False)
 
 
+@app.route('/')
+def index():
+    return get_template(subtitle='Real Duckiebot', show_reset=False)
+
+
 @app.route('/video')
 def video():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/status')
+def status():
+    return jsonify(agent.get_status())
+
+
+@app.route('/command', methods=['POST'])
+def command():
+    data = request.get_json(silent=True) or {}
+    key  = (data.get('key') or '').strip()
+    if not key:
+        return jsonify({'status': 'error', 'message': 'key required'}), 400
+    try:
+        msg = agent.apply_command(key, data.get('value'))
+        return jsonify({'status': 'ok', 'message': msg})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
 @app.route('/shutdown')
