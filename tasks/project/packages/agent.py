@@ -108,11 +108,16 @@ def main(camera, wheels, leds, stop_event, sim=False):
     global _cfg, _obstacle
     _cfg = _load_config()
 
+    _set_status(state="init", note="loading signs")
     signs    = SignDetector(_cfg, sim=sim)
+    _set_status(state="init", note="loading lane follower")
     lane     = LaneFollower(_cfg)
+    _set_status(state="init", note="loading stopline detector")
     stopline = StopLineDetector(_cfg)
+    _set_status(state="init", note="loading obstacle detector")
     obstacle = ObstacleStopper(_cfg)
     _obstacle = obstacle
+    _set_status(state="init", note="starting obstacle thread")
     obstacle.start(camera)
 
     leds_ctl = _Leds(leds)

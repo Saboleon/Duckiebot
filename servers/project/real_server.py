@@ -112,12 +112,16 @@ def main():
 
     print('\n[4/4] Starting agent...')
     stop_event.clear()
-    threading.Thread(
-        target=agent.main,
-        args=(camera, wheels, leds, stop_event),
-        daemon=True,
-        name='AgentThread',
-    ).start()
+
+    def _run_agent():
+        try:
+            agent.main(camera, wheels, leds, stop_event)
+        except Exception as e:
+            import traceback
+            print(f'\n[AgentThread] CRASHED: {e}')
+            traceback.print_exc()
+
+    threading.Thread(target=_run_agent, daemon=True, name='AgentThread').start()
     print('  agent.main() running')
 
     def _shutdown(signum, frame):
