@@ -109,16 +109,41 @@ def main(camera, wheels, leds, stop_event, sim=False):
     _cfg = _load_config()
 
     _set_status(state="init", note="loading signs")
-    signs    = SignDetector(_cfg, sim=sim)
+    try:
+        signs = SignDetector(_cfg, sim=sim)
+    except Exception as e:
+        print(f"[project] SignDetector failed: {e}")
+        _set_status(state="init", note=f"signs error: {e}")
+        signs = _DummySigns()
+
     _set_status(state="init", note="loading lane follower")
-    lane     = LaneFollower(_cfg)
+    try:
+        lane = LaneFollower(_cfg)
+    except Exception as e:
+        print(f"[project] LaneFollower failed: {e}")
+        _set_status(state="error", note=f"lane error: {e}")
+        return
+
     _set_status(state="init", note="loading stopline detector")
-    stopline = StopLineDetector(_cfg)
+    try:
+        stopline = StopLineDetector(_cfg)
+    except Exception as e:
+        print(f"[project] StopLineDetector failed: {e}")
+        stopline = _DummyStopline()
+
     _set_status(state="init", note="loading obstacle detector")
-    obstacle = ObstacleStopper(_cfg)
+    try:
+        obstacle = ObstacleStopper(_cfg)
+    except Exception as e:
+        print(f"[project] ObstacleStopper failed: {e}")
+        obstacle = _DummyObstacle()
     _obstacle = obstacle
+
     _set_status(state="init", note="starting obstacle thread")
-    obstacle.start(camera)
+    try:
+        obstacle.start(camera)
+    except Exception as e:
+        print(f"[project] obstacle.start failed: {e}")
 
     leds_ctl = _Leds(leds)
     random.seed()
@@ -574,3 +599,25 @@ def _load_config(path=None):
     except Exception as e:
         print(f"[project] could not load config ({e}); using defaults")
         return {}
+
+
+class _DummySigns:
+    act_px = 999
+    def detect(self, frame): return []
+    def closest_actionable(self, obs, **kw): return None
+    def in_view(self, obs): return None
+    def draw(self, frame, obs): return frame
+
+class _DummyStopline:
+    trigger = 0.0
+    def detect(self, frame): return False, 0.0
+
+class _DummyObstacle:
+    blocked = False
+    reason = ""
+    enabled = False
+    def start(self, camera): pass
+    def status(self): return False, ""
+    def traffic_present(self): return False
+    def draw(self, frame): return frame
+    def stop(self): pass
