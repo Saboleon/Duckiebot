@@ -37,6 +37,9 @@ _discovery_active  = False
 _discovery_overlay = None
 _discovery_ids     = {}
 _discovery_backend = "?"
+_discovery_blocked = False
+_discovery_reason  = ""
+_discovery_ndets   = 0
 _discovery_lock    = threading.Lock()
 
 
@@ -81,8 +84,11 @@ def status():
         with _discovery_lock:
             return jsonify({
                 'state': 'discovery',
-                'backend': _discovery_backend,
+                'sign_backend': _discovery_backend,
                 'discovered_sign_ids': sorted(_discovery_ids.keys()),
+                'obstacle_detections': _discovery_ndets,
+                'obstacle_blocked': _discovery_blocked,
+                'obstacle_reason': _discovery_reason,
             })
     return jsonify(agent.get_status())
 
@@ -132,13 +138,29 @@ def shutdown():
 
 
 def _discovery_loop():
-    """Background: detect AprilTags, draw boxes, remember IDs. Camera + signs only."""
+    """Background: detect AprilTags AND ducks/cars, draw boxes. Camera + perception
+    only — no driving. Lets you verify both the sign detector and the ONNX obstacle
+    model are actually seeing things, without launching the agent."""
     global _discovery_overlay
     from tasks.project.packages.sign_detection import SignDetector, _load_config
-    signs = SignDetector(_load_config(), sim=False)
+    from tasks.project.packages.object_detection import ObstacleStopper
+    cfg = _load_config()
+
+    signs = SignDetector(cfg, sim=False)
     signs.discovery_mode = True   # show ALL tags regardless of config
     globals()['_discovery_backend'] = getattr(signs, '_backend', '?')
     print(f"  SignDetector: backend={_discovery_backend}, discovery=forced-on")
+
+    # obstacle model (ducks/cars) — start it so we can SEE its detections
+    obstacle = None
+    try:
+        obstacle = ObstacleStopper(cfg)
+        obstacle.start(camera)
+        print(f"  ObstacleStopper: enabled={obstacle.enabled} "
+              f"(load_error={getattr(obstacle, 'load_error', None)})")
+    except Exception as e:
+        print(f"  ObstacleStopper failed: {e}")
+
     while not stop_event.is_set():
         ok, frame = camera.read()
         if not ok or frame is None:
@@ -154,14 +176,32 @@ def _discovery_loop():
             signs.draw(img, observations)
         except Exception:
             pass
+
+        # overlay duck/car detection boxes + blocked state
+        blocked, reason, n_dets = False, "", 0
+        if obstacle is not None and obstacle.enabled:
+            try:
+                obstacle.draw(img)
+                blocked, reason = obstacle.status()
+                with obstacle._lock:
+                    n_dets = len(obstacle._dets)
+            except Exception:
+                pass
+
         with _discovery_lock:
             for o in observations:
                 if o.tag_id not in _discovery_ids:
                     _discovery_ids[o.tag_id] = True
                     print(f"[discovery] >>> tag_id={o.tag_id} (sign_type={o.sign_type})")
             ids_txt = "IDs: " + (", ".join(str(i) for i in sorted(_discovery_ids)) or "none yet")
-        cv2.putText(img, f"DISCOVERY  backend={_discovery_backend}  tags={len(observations)}",
+            globals()['_discovery_blocked'] = blocked
+            globals()['_discovery_reason']  = reason
+            globals()['_discovery_ndets']   = n_dets
+        cv2.putText(img, f"DISCOVERY  signs={_discovery_backend}  tags={len(observations)}",
                     (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        obs_txt = f"obstacle: dets={n_dets}  blocked={blocked}" + (f"  {reason}" if reason else "")
+        cv2.putText(img, obs_txt, (8, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                    (0, 0, 255) if blocked else (0, 200, 255), 2)
         cv2.putText(img, ids_txt, (8, 466), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
         with _discovery_lock:
             _discovery_overlay = img
