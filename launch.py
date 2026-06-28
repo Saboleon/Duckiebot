@@ -335,8 +335,10 @@ def package_task(task_name):
             return None
         return tarinfo
 
-    task_models_dir = os.path.join(PROJECT_ROOT, 'tasks', task_name, 'models')
-    task_server_dir = os.path.join(PROJECT_ROOT, 'servers', task_name)
+    task_models_dir   = os.path.join(PROJECT_ROOT, 'tasks', task_name, 'models')
+    task_server_dir   = os.path.join(PROJECT_ROOT, 'servers', task_name)
+    servers_common    = os.path.join(PROJECT_ROOT, 'servers', 'common.py')
+    servers_templates = os.path.join(PROJECT_ROOT, 'servers', 'templates')
 
     tasks_root = os.path.join(PROJECT_ROOT, 'tasks')
 
@@ -359,6 +361,12 @@ def package_task(task_name):
         if os.path.exists(task_server_dir):
             print(f"   Adding server: servers/{task_name}/")
             tar.add(task_server_dir, arcname=f'servers/{task_name}', filter=no_pycache)
+        if os.path.exists(servers_common):
+            print(f"   Adding servers/common.py")
+            tar.add(servers_common, arcname='servers/common.py', filter=no_pycache)
+        if os.path.exists(servers_templates):
+            print(f"   Adding servers/templates/")
+            tar.add(servers_templates, arcname='servers/templates', filter=no_pycache)
 
     buf.seek(0)
     print("Package created!")
