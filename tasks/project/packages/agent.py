@@ -502,9 +502,15 @@ def _allowed_turns(observations):
 
 def _drive_for(wheels, left, right, secs, stop_event, obstacle, leds_ctl, on_move=None):
     """Drive at (left, right) for `secs` of actual MOVING time.
-    Pauses for obstacles ahead; aborts if a manual drive command arrives."""
+    Pauses for obstacles ahead; aborts if a manual drive command arrives.
+
+    A DUCK pauses the maneuver indefinitely (don't run it over). A VEHICLE only
+    pauses up to max_block_s — a crossing/parked car must not freeze the turn for
+    good, so after the cap we resume the arc and drive past it."""
+    max_block_s = float(_cfg.get("obstacle", {}).get("max_block_s", 4.0))
     remaining = float(secs)
     was_blocked = True
+    paused_since = 0.0
     while remaining > 0.0:
         if stop_event.is_set():
             _drive(wheels, 0.0, 0.0)
@@ -513,7 +519,13 @@ def _drive_for(wheels, left, right, secs, stop_event, obstacle, leds_ctl, on_mov
             _drive(wheels, 0.0, 0.0)
             return False
         blocked, _ = obstacle.status()
-        if blocked:
+        if not blocked:
+            paused_since = 0.0                       # truly clear → reset the timer
+        elif paused_since == 0.0:
+            paused_since = time.time()               # just got blocked → start timing
+        # only hold forever for a duck; a stalled vehicle times out so the turn finishes
+        hold = blocked and (obstacle.is_duck_block() or (time.time() - paused_since < max_block_s))
+        if hold:
             if not was_blocked:
                 _drive(wheels, 0.0, 0.0)
                 leds_ctl.hazard()
