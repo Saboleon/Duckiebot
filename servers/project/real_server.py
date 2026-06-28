@@ -30,8 +30,11 @@ stop_event = threading.Event()
 
 
 def _visualize(frame):
-    # prefer the annotated overlay (lane lines, sign boxes, state text)
-    overlay = agent.get_overlay(max_age=0.5)
+    # On real hardware don't apply a max_age — the overlay goes stale during
+    # blocking maneuvers (turns, stops) and then cam.read() blocks too, which
+    # freezes the browser feed. Use whatever overlay we have; fall back to the
+    # raw frame only when no overlay has been produced yet.
+    overlay = agent.get_overlay()
     if overlay is not None:
         return overlay
     if frame is not None:
