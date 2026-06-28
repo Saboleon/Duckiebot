@@ -18,6 +18,7 @@ Notes:
 
 import sys
 import os
+import time
 import argparse
 import threading
 
@@ -214,6 +215,19 @@ def main():
         name='AgentThread',
     ).start()
     print('  agent.main() running')
+
+    # Godot's scene starts idle and only activates when it receives a reset
+    # message. Send the same one the "Reset Scene" button does, so the bot
+    # starts driving automatically instead of needing a manual reset.
+    def _auto_reset():
+        time.sleep(1.0)              # let the agent thread + lazy wheel socket come up
+        try:
+            wheels.reset_game()
+            agent.set_paused(False)
+            print('  auto-reset sent to Godot (scene activated)')
+        except Exception as e:
+            print(f'  auto-reset failed: {e}')
+    threading.Thread(target=_auto_reset, daemon=True, name='AutoReset').start()
 
     web_port = find_available_port(args.port)
     print(f'\nWeb Interface: http://localhost:{web_port}')
