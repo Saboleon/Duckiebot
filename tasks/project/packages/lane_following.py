@@ -5,16 +5,19 @@ import numpy as np
 
 from tasks.visual_lane_servoing.packages.agent import LaneServoingAgent
 
-_CFG_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config'))
+_CFG_DIR  = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config'))
 _CFG_REAL = os.path.join(_CFG_DIR, 'lane_servoing_config.yaml')
 _CFG_SIM  = os.path.join(_CFG_DIR, 'lane_servoing_config_sim.yaml')
+_HSV_REAL = os.path.join(_CFG_DIR, 'lane_servoing_hsv_config_real.yaml')
+_HSV_SIM  = None  # use default (lane_servoing_hsv_config.yaml)
 
 
 class LaneFollower:
 
     def __init__(self, cfg, sim=True):
         config_path = _CFG_SIM if sim else _CFG_REAL
-        self._agent   = LaneServoingAgent(config_path=config_path)
+        hsv_path    = _HSV_SIM if sim else _HSV_REAL
+        self._agent = LaneServoingAgent(config_path=config_path, hsv_config_path=hsv_path)
         self._nominal = float(self._agent.base_speed) or 0.15
 
         try:

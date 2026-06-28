@@ -45,13 +45,18 @@ def detect_lines_in_slices(
 
 class LaneServoingAgent:
 
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: str = None, hsv_config_path: str = None):
         path = config_path or _CONFIG_FILE
         try:
             with open(path) as f:
                 cfg = yaml.safe_load(f) or {}
         except Exception:
             cfg = {}
+
+        # reload HSV masks for this environment (sim uses default, real uses _real.yaml)
+        if hsv_config_path:
+            from tasks.visual_lane_servoing.packages import visual_servoing_activity as _vsa
+            _vsa._load_hsv(hsv_config_path)
 
         self.p_gain              = cfg.get('p_gain',              0.1)
         self.d_gain              = cfg.get('d_gain',              0.35)
