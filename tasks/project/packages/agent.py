@@ -183,6 +183,7 @@ def main(camera, wheels, leds, stop_event, sim=False):
     yield_sign_since = 0.0        # when a YIELD sign was first seen at act distance
     cooldown_until = 0.0          # ignore the stop line again until this time
     blocked_since = 0.0           # when the obstacle block started (0 = not blocked)
+    creeping_past = False         # True once we've started easing past a stalled vehicle
     frame_i = 0
 
     _set_status(state="cruise", note="started")
@@ -243,9 +244,15 @@ def main(camera, wheels, leds, stop_event, sim=False):
             # being stuck behind one we creep past instead of freezing forever.
             max_block_s = float(_cfg.get("obstacle", {}).get("max_block_s", 4.0))
             if blocked:
-                if blocked_since == 0.0:
+                first_block = (blocked_since == 0.0)
+                if first_block:
                     blocked_since = now
                 is_duck = obstacle.is_duck_block()
+                if first_block:
+                    if is_duck:
+                        print(f"[project] STOP: {block_reason} (duck — holding until removed)")
+                    else:
+                        print(f"[project] STOP: {block_reason} (vehicle — will creep past after {max_block_s:.0f}s)")
                 if is_duck or (now - blocked_since < max_block_s):
                     leds_ctl.hazard()
                     _drive(wheels, 0.0, 0.0)
@@ -256,6 +263,9 @@ def main(camera, wheels, leds, stop_event, sim=False):
                 # car stuck too long — creep straight past it. The car covers the
                 # lane markings, so lane following can't see them; drive an explicit
                 # slow forward creep instead of relying on lane detection.
+                if not creeping_past:
+                    print(f"[project] GO: vehicle blocked >{max_block_s:.0f}s — creeping past")
+                    creeping_past = True
                 creep = float(_cfg.get("speed", {}).get("approach", 0.15))
                 _drive(wheels, creep, creep)
                 leds_ctl.cruise()
@@ -265,7 +275,10 @@ def main(camera, wheels, leds, stop_event, sim=False):
                 time.sleep(0.05)
                 continue
             else:
+                if blocked_since != 0.0:
+                    print("[project] GO: obstacle cleared — resuming")
                 blocked_since = 0.0
+                creeping_past = False
 
             # ---- force_turn command: execute immediately (don't wait for red line) ----
             if _force_turn is not None:
