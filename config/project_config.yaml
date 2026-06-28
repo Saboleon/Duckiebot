@@ -33,17 +33,17 @@ signs_sim:
 # the demo (run the detector and note the tag_id printed on each sign).
 # Used when deploying with `python launch.py --run --bot <name> --task project`.
 signs_real:
-  stop: []          # e.g. [162, 169]
-  yield: []         # e.g. [166]
-  pedestrian: []    # e.g. [54]
-  t_right: []       # straight or right
-  t_left: []        # straight or left
-  t_junction: []    # left or right
-  turn_left: []
-  turn_right: []
-  go_straight: []
-  yield_left: []
-  parking: []
+  stop: [24, 25, 26]
+  yield: [39]
+  pedestrian: [20]
+  t_right: [9]    # straight or right
+  t_left: [10]    # straight or left
+  t_junction: [11] # left or right (road ends ahead)
+  turn_left: [50]
+  turn_right: [51]
+  go_straight: [52]
+  yield_left: [54]
+  parking: [53]
 
 # camera / tag geometry (only used for the on-screen distance estimate)
 camera:
