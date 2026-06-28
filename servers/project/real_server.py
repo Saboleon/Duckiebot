@@ -77,6 +77,11 @@ def command():
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 
+@app.route('/ping')
+def ping():
+    return 'ok'
+
+
 @app.route('/snapshot')
 def snapshot():
     overlay = agent.get_overlay()
@@ -162,7 +167,10 @@ def main():
     print('Press Ctrl+C to stop\n')
 
     try:
-        app.run(host='0.0.0.0', port=web_port, debug=False, threaded=True)
+        # use_reloader=False avoids the double-process that breaks signals;
+        # threaded=True lets the snapshot endpoint serve while agent is running
+        app.run(host='0.0.0.0', port=web_port, debug=False,
+                threaded=True, use_reloader=False)
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:

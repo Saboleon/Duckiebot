@@ -164,7 +164,7 @@ document.getElementById('cmdValue').addEventListener('keydown', e => {
 });
 
 refreshStatus();
-setInterval(refreshStatus, 500);
+setInterval(refreshStatus, 1000);
 
 // Manual drive
 function startDrive(l, r) {
@@ -195,15 +195,21 @@ document.addEventListener('keyup', e => {
         stopDrive();
 });
 
-// Poll /snapshot every 80ms instead of MJPEG — more reliable on real hardware
+// Video polling — 200ms (5fps) is enough and doesn't flood the WiFi link
+let _videoErrors = 0;
 (function pollVideo() {
-    const img = document.getElementById('videoStream');
     const next = new Image();
     next.onload = function() {
-        img.src = this.src;
-        setTimeout(pollVideo, 80);
+        document.getElementById('videoStream').src = this.src;
+        _videoErrors = 0;
+        setTimeout(pollVideo, 200);
     };
-    next.onerror = function() { setTimeout(pollVideo, 500); };
+    next.onerror = function() {
+        _videoErrors++;
+        // after 10 consecutive failures (~5 s) reload the page to reconnect
+        if (_videoErrors >= 10) { location.reload(); return; }
+        setTimeout(pollVideo, 500);
+    };
     next.src = '/snapshot?' + Date.now();
 })();
 '''
