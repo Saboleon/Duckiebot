@@ -29,11 +29,19 @@ class LaneFollower:
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         left, right = self._agent.compute_commands(rgb)
 
-        ratio = base_speed / self._nominal if self._nominal > 1e-6 else 1.0
-        left  = float(np.clip(left  * ratio, 0.0, 1.0))
-        right = float(np.clip(right * ratio, 0.0, 1.0))
-
         info = self._agent.last_debug_info
+        ratio = base_speed / self._nominal if self._nominal > 1e-6 else 1.0
+
+        if not info.get('lane_detected', False):
+            # Lane lost: creep forward slowly instead of stopping dead.
+            # This lets the bot drift back into view of the lane on curves
+            # rather than getting stuck.
+            creep = base_speed * 0.35
+            left, right = creep, creep
+        else:
+            left  = float(np.clip(left  * ratio, 0.0, 1.0))
+            right = float(np.clip(right * ratio, 0.0, 1.0))
+
         debug = {
             "error":    round(float(info.get("lateral_error", 0.0)), 3),
             "lane_px":  int(info.get("total_lane_pixels", 0)),
