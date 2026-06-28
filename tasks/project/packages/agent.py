@@ -137,7 +137,7 @@ def main(camera, wheels, leds, stop_event, sim=False):
 
     _set_status(state="init", note="loading lane follower")
     try:
-        lane = LaneFollower(_cfg)
+        lane = LaneFollower(_cfg, sim=sim)
     except Exception as e:
         print(f"[project] LaneFollower failed: {e}")
         _set_status(state="error", note=f"lane error: {e}")

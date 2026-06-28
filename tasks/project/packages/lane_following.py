@@ -1,45 +1,34 @@
-"""Lane following.
-
-We reuse the lane follower from the `visual_lane_servoing` task - it is already
-tuned and proven (edge + colour masks to find the yellow/white lane boundaries,
-an adaptive lane-width estimate so it aims at the lane *centre* even when only
-one boundary is visible, and a PD controller). This wrapper just lets the agent
-ask for a slower "approach" speed while keeping that proven steering.
-
-`compute()` returns `(left_speed, right_speed, debug)`. At cruise speed the
-output is identical to the visual_lane_servoing agent; lower speeds scale both
-wheels equally so the turn geometry is preserved.
-"""
-
+import os
+import yaml
 import cv2
 import numpy as np
 
 from tasks.visual_lane_servoing.packages.agent import LaneServoingAgent
 
+_CFG_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config'))
+_CFG_REAL = os.path.join(_CFG_DIR, 'lane_servoing_config.yaml')
+_CFG_SIM  = os.path.join(_CFG_DIR, 'lane_servoing_config_sim.yaml')
+
 
 class LaneFollower:
 
-    def __init__(self, cfg):
-        self._agent = LaneServoingAgent()
+    def __init__(self, cfg, sim=True):
+        config_path = _CFG_SIM if sim else _CFG_REAL
+        self._agent   = LaneServoingAgent(config_path=config_path)
         self._nominal = float(self._agent.base_speed) or 0.15
-        # trim: positive value boosts left wheel / slows right → corrects leftward drift
-        self._trim = float(self._agent.p_gain * 0)  # start at 0, read from config
+
         try:
-            import yaml, os
-            cfg_path = os.path.normpath(os.path.join(
-                os.path.dirname(__file__), '..', '..', '..', 'config', 'lane_servoing_config.yaml'))
-            with open(cfg_path) as f:
+            with open(config_path) as f:
                 sc = yaml.safe_load(f) or {}
             self._trim = float(sc.get('trim', 0.0))
         except Exception:
             self._trim = 0.0
 
     def compute(self, frame_bgr, base_speed):
-        """base_speed is the forward speed to aim for (cruise or approach)."""
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         left, right = self._agent.compute_commands(rgb)
 
-        info = self._agent.last_debug_info
+        info  = self._agent.last_debug_info
         ratio = base_speed / self._nominal if self._nominal > 1e-6 else 1.0
 
         if not info.get('lane_detected', False):
@@ -57,7 +46,6 @@ class LaneFollower:
         return left, right, debug
 
     def draw(self, frame_bgr, debug):
-        """Overlay the lane-line sample points the controller is tracking."""
         info = self._agent.last_debug_info
         h, w = frame_bgr.shape[:2]
         cv2.line(frame_bgr, (w // 2, int(h * 0.5)), (w // 2, h), (255, 255, 255), 1)
