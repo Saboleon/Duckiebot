@@ -71,7 +71,11 @@ class _SimLeds:
 
 
 def _visualize(frame):
-    overlay = agent.get_overlay()
+    # Prefer the agent's annotated overlay, but only if it's recent. During a
+    # blocking maneuver (turn / yield / stop wait) the control loop stops
+    # refreshing it; falling back to the live camera frame keeps the video
+    # moving instead of freezing on the last annotated image.
+    overlay = agent.get_overlay(max_age=0.3)
     if overlay is not None:
         return overlay
     return frame
@@ -119,6 +123,20 @@ def reset():
         wheels.reset_game()
     agent.set_paused(False)
     return jsonify({'status': 'reset'})
+
+
+@app.route('/remove_duck', methods=['POST'])
+def remove_duck():
+    """Remove one duck obstacle from the Godot scene. Handy when the bot has
+    stopped for a duck: clear it and the bot resumes once the camera no longer
+    sees it. The 'duck_' filter matches the Duck_* nodes only (not DuckieBot or
+    the Ducks container), and Godot frees the first match, so one duck per call.
+    Also un-pauses, in case the bot was holding (e.g. parked)."""
+    if not wheels:
+        return jsonify({'status': 'error', 'message': 'no sim connection'}), 400
+    wheels.remove_objects('duck_')
+    agent.set_paused(False)
+    return jsonify({'status': 'ok', 'message': 'Removed a duck'})
 
 
 @app.route('/switch_scene', methods=['POST'])

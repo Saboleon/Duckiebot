@@ -33,6 +33,7 @@ _CONTENT = '''
                     <button class="button success" onclick="sendCtl('resume')">Resume</button>
                 </div>
                 <!--RESET-->
+                <!--REMOVE_DUCK-->
                 <div id="driveStatus" class="status"></div>
             </div>
 
@@ -91,6 +92,13 @@ function resetScene() {
         .catch(e => showStatus('driveStatus', 'Error: ' + e, 'error'));
 }
 
+function removeDuck() {
+    postJSON('/remove_duck', {})
+        .then(r => showStatus('driveStatus', r.message || 'Removed duck',
+                              r.status === 'ok' ? 'success' : 'error'))
+        .catch(e => showStatus('driveStatus', 'Error: ' + e, 'error'));
+}
+
 function refreshStatus() {
     fetch('/status')
         .then(r => r.json())
@@ -138,10 +146,14 @@ setInterval(refreshStatus, 500);
 _RESET_BUTTON = ('<button class="button" onclick="resetScene()" '
                  'style="background:var(--accent-orange);">&#8635; Reset Scene</button>')
 
+_REMOVE_DUCK_BUTTON = ('<button class="button" onclick="removeDuck()" '
+                       'style="background:var(--accent-orange);">&#128036; Remove Duck</button>')
+
 
 def get_template(title='Project', subtitle='Real Duckiebot', show_reset=False):
-    # the Reset Scene button only makes sense in the simulator
+    # the Reset Scene / Remove Duck buttons only make sense in the simulator
     content = _CONTENT.replace('<!--RESET-->', _RESET_BUTTON if show_reset else '')
+    content = content.replace('<!--REMOVE_DUCK-->', _REMOVE_DUCK_BUTTON if show_reset else '')
     return render_template(
         title=title,
         subtitle=subtitle,

@@ -29,8 +29,23 @@ class ObstacleStopper:
     def __init__(self, cfg):
         ocfg = (cfg or {}).get("obstacle", {})
         self.enabled = bool(ocfg.get("enabled", False))
+        # duck bbox bottom past this fraction of frame height -> stop. Lower =
+        # stops from farther away (needed at higher cruise speed). Default 0.72
+        # matches the shared object_detection task.
+        self.stop_y_frac = float(ocfg.get("stop_y_frac", 0.72))
         self.blocked = False
         self.reason = ""
+
+        # right-of-way: which detections count as crossing traffic, and the
+        # vertical band of the frame to watch for them (used by yield/stop).
+        ycfg = (cfg or {}).get("yield_traffic", {})
+        self.traffic_enabled  = bool(ycfg.get("enabled", True))
+        self.traffic_classes  = set(ycfg.get("classes", []) or [])      # [] = any object
+        self.traffic_top_frac = float(ycfg.get("zone_top_frac", 0.30))
+        self.traffic_bot_frac = float(ycfg.get("zone_bottom_frac", 0.80))
+        self.traffic_min_score = float(ycfg.get("min_score", 0.5))      # ignore weak boxes
+        self._dets = []          # latest detections (for traffic_present)
+        self._size = 0
 
         self._agent = None
         self._should_stop = None
@@ -89,10 +104,79 @@ class ObstacleStopper:
                 continue
             if dets is None:                         # frame skipped by the agent
                 continue
-            blocked, reason = self._should_stop(dets, size)
+            blocked, reason = self._evaluate(dets, size)
             with self._lock:
                 self.blocked = blocked
                 self.reason = reason
+                self._dets = dets
+                self._size = size
+
+    def traffic_present(self):
+        """True if crossing traffic is visible right now (for yield/stop right-
+        of-way). Counts detections whose center falls in the configured vertical
+        band; if `traffic_classes` is set, only those classes count (1=other
+        bot, 0=duckie). Returns False when obstacle detection is unavailable, so
+        callers fall back to a plain timed pause."""
+        if not (self.enabled and self.traffic_enabled):
+            return False
+        with self._lock:
+            dets = list(self._dets)
+            size = self._size
+        if size <= 0:
+            return False
+        top = size * self.traffic_top_frac
+        bot = size * self.traffic_bot_frac
+        for (x1, y1, x2, y2), score, cls_id in dets:
+            if score < self.traffic_min_score:
+                continue
+            if self.traffic_classes and cls_id not in self.traffic_classes:
+                continue
+            cy = 0.5 * (y1 + y2)
+            if top <= cy <= bot:
+                return True
+        return False
+
+    def draw(self, frame):
+        """Overlay the current detections + the traffic watch-band on the frame
+        (BGR, modified in place). Red box = counts as crossing traffic right now;
+        amber box = detected but ignored (out of band / wrong class / low score).
+        Use it to see exactly what the right-of-way logic is reacting to."""
+        if not self.enabled:
+            return frame
+        with self._lock:
+            dets = list(self._dets)
+            size = self._size
+        if size <= 0:
+            return frame
+        h, w = frame.shape[:2]
+        sx, sy = w / float(size), h / float(size)
+        y_top, y_bot = int(h * self.traffic_top_frac), int(h * self.traffic_bot_frac)
+        cv2.line(frame, (0, y_top), (w, y_top), (255, 180, 0), 1)
+        cv2.line(frame, (0, y_bot), (w, y_bot), (255, 180, 0), 1)
+        names = {0: "duckie", 1: "truck/bot", 2: "sign"}
+        for (x1, y1, x2, y2), score, cls_id in dets:
+            cy = 0.5 * (y1 + y2)
+            counts = ((not self.traffic_classes) or (cls_id in self.traffic_classes)) \
+                     and score >= self.traffic_min_score \
+                     and (size * self.traffic_top_frac) <= cy <= (size * self.traffic_bot_frac)
+            color = (0, 0, 255) if counts else (0, 200, 255)
+            p1 = (int(x1 * sx), int(y1 * sy))
+            p2 = (int(x2 * sx), int(y2 * sy))
+            cv2.rectangle(frame, p1, p2, color, 2)
+            cv2.putText(frame, f"{names.get(cls_id, cls_id)} {score:.2f}",
+                        (p1[0], max(12, p1[1] - 4)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        return frame
+
+    def _evaluate(self, dets, size):
+        """Stop if any detected duckie reaches our configurable proximity line.
+        Same rule as the shared should_stop() but with a tunable threshold so we
+        can brake earlier at higher speed. dets are already duckie-only."""
+        stop_y = size * self.stop_y_frac
+        for (x1, y1, x2, y2), score, cls_id in dets:
+            if y2 > stop_y:
+                return True, "duckie detected ahead"
+        return False, ""
 
     def status(self):
         with self._lock:

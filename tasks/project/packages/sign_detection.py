@@ -21,6 +21,11 @@ PEDESTRIAN = "pedestrian"
 T_RIGHT    = "t_right"      # side road on the right  -> straight | right
 T_LEFT     = "t_left"       # side road on the left   -> straight | left
 T_JUNCTION = "t_junction"   # T intersection          -> left | right
+TURN_LEFT  = "turn_left"    # mandatory left  -> left only
+TURN_RIGHT = "turn_right"   # mandatory right -> right only
+GO_STRAIGHT = "go_straight" # mandatory straight ahead
+YIELD_LEFT = "yield_left"   # yield, THEN mandatory left (combined sign)
+PARKING    = "parking"      # parking area (not an intersection)
 UNKNOWN    = "unknown"
 
 # turns
@@ -28,14 +33,23 @@ LEFT     = "left"
 RIGHT    = "right"
 STRAIGHT = "straight"
 
-# which turns each intersection sign permits
+# which turns each intersection sign permits. Single-direction signs list one
+# turn, so random.choice() over the list always yields that direction.
 ALLOWED_TURNS = {
-    T_RIGHT:    [STRAIGHT, RIGHT],
-    T_LEFT:     [STRAIGHT, LEFT],
-    T_JUNCTION: [LEFT, RIGHT],
+    T_RIGHT:     [STRAIGHT, RIGHT],
+    T_LEFT:      [STRAIGHT, LEFT],
+    T_JUNCTION:  [LEFT, RIGHT],
+    TURN_LEFT:   [LEFT],
+    TURN_RIGHT:  [RIGHT],
+    GO_STRAIGHT: [STRAIGHT],
+    YIELD_LEFT:  [LEFT],   # turn part; the yield part is gated separately
 }
 
 INTERSECTION_SIGNS = set(ALLOWED_TURNS.keys())
+
+# signs that require a yield (brief pause) before proceeding through the
+# intersection. YIELD_LEFT both yields AND forces a left turn.
+YIELD_SIGNS = {YIELD, YIELD_LEFT}
 
 _CONFIG_FILE = os.path.normpath(os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "config", "project_config.yaml"

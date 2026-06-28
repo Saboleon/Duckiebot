@@ -27,7 +27,8 @@ import cv2
 import yaml
 
 from tasks.project.packages.sign_detection import (
-    SignDetector, STOP, YIELD, PEDESTRIAN, LEFT, RIGHT, STRAIGHT,
+    SignDetector, STOP, YIELD, PEDESTRIAN, PARKING, YIELD_SIGNS,
+    LEFT, RIGHT, STRAIGHT,
 )
 from tasks.project.packages.lane_following import LaneFollower
 from tasks.project.packages.road_perception import StopLineDetector
@@ -41,6 +42,8 @@ _CONFIG_FILE = os.path.normpath(os.path.join(
 _lock = threading.Lock()
 _status = {"state": "init"}
 _overlay = None          # latest annotated BGR frame
+_overlay_ts = 0.0        # when _overlay was last refreshed (for staleness checks)
+_obstacle = None         # ObstacleStopper ref, so the overlay can draw detections
 _cfg = {}                # live config (mutable via apply_command)
 _paused = False          # when True the agent holds still (sim convenience)
 _force_turn = None       # set to "left"/"right"/"straight" to trigger one turn
@@ -51,9 +54,17 @@ def get_status():
         return dict(_status)
 
 
-def get_overlay():
+def get_overlay(max_age=None):
+    """Latest annotated frame, or None. With max_age set, also returns None when
+    the overlay is older than max_age seconds - the control loop stops refreshing
+    it during blocking maneuvers (turns, yield/stop waits), so the video stream
+    can fall back to the live camera frame instead of freezing on a stale image."""
     with _lock:
-        return None if _overlay is None else _overlay.copy()
+        if _overlay is None:
+            return None
+        if max_age is not None and (time.time() - _overlay_ts) > max_age:
+            return None
+        return _overlay.copy()
 
 
 def set_paused(value):
@@ -94,13 +105,14 @@ def apply_command(key, value):
 
 # ============================================================================
 def main(camera, wheels, leds, stop_event):
-    global _cfg
+    global _cfg, _obstacle
     _cfg = _load_config()
 
     signs    = SignDetector(_cfg)
     lane     = LaneFollower(_cfg)
     stopline = StopLineDetector(_cfg)
     obstacle = ObstacleStopper(_cfg)
+    _obstacle = obstacle
     obstacle.start(camera)
 
     leds_ctl = _Leds(leds)
@@ -109,6 +121,8 @@ def main(camera, wheels, leds, stop_event):
     pending_turn = None           # turn queued (by a sign or a button), run at the red line
     pending_src = None            # "sign" or "command" - for the status display
     pending_since = 0.0           # when pending_turn was set (for no-red-line fallback)
+    pending_gate = None           # sign category that queued the turn (e.g. yield_left),
+                                  # so we still yield/stop even after the sign leaves view
     stop_sign_since = 0.0         # when a STOP sign was first seen at act distance
     yield_sign_since = 0.0        # when a YIELD sign was first seen at act distance
     cooldown_until = 0.0          # ignore the stop line again until this time
@@ -158,6 +172,7 @@ def main(camera, wheels, leds, stop_event):
                 pending_turn = _consume_force_turn()
                 pending_src = "command"
                 pending_since = now
+                pending_gate = None          # manual turn: no yield/stop gating
 
             # ---- queue a turn from a traffic sign (real bot) ----
             # an intersection sign seen before the line decides which way to go
@@ -167,6 +182,7 @@ def main(camera, wheels, leds, stop_event):
                     pending_turn = random.choice(sign.allowed_turns)
                     pending_src = "sign"
                     pending_since = now
+                    pending_gate = sign.sign_type   # remember it (e.g. yield_left)
                     print(f"[project] {sign.sign_type} sign -> queued turn: {pending_turn}")
 
             # ---- track STOP/YIELD proximity for no-red-line fallback ----
@@ -182,14 +198,27 @@ def main(camera, wheels, leds, stop_event):
             else:
                 yield_sign_since = 0.0
 
+            # ---- parking sign: this is the destination. Come to a full stop
+            #      and stay parked (hold still). Send 'resume' from the
+            #      dashboard if you want to drive on afterwards. ----
+            if PARKING in close_types and now >= cooldown_until:
+                print("[project] PARKING sign -> parked (full stop)")
+                leds_ctl.stop()
+                _drive(wheels, 0.0, 0.0)
+                _annotate(signs, lane, frame, observations, {}, "parked")
+                _set_status(state="parked", note="parking sign")
+                set_paused(True)
+                continue
+
             # ---- the red stop line is the trigger: execute the queued turn here ----
             if at_line and now >= cooldown_until:
                 _drive(wheels, 0.0, 0.0)
                 handled = _handle_intersection(
-                    wheels, leds_ctl, observations, pending_turn, stop_event)
+                    wheels, leds_ctl, obstacle, observations, pending_turn, pending_gate, stop_event)
                 pending_turn = None
                 pending_src = None
                 pending_since = 0.0
+                pending_gate = None
                 stop_sign_since = 0.0
                 yield_sign_since = 0.0
                 cooldown_until = time.time() + 4.0
@@ -206,7 +235,7 @@ def main(camera, wheels, leds, stop_event):
                 _set_status(state="stop", note="STOP sign (no red line)")
                 timing = _cfg.get("timing", {})
                 _wait(stop_event, float(timing.get("stop_dwell", 2.0)))
-                _wait(stop_event, float(timing.get("clear_time", 2.0)))
+                _wait_for_clear(obstacle, leds_ctl, stop_event, timing)
                 stop_sign_since = 0.0
                 cooldown_until = time.time() + 4.0
                 _set_status(state="cruise", last="stop(no-line)")
@@ -218,7 +247,10 @@ def main(camera, wheels, leds, stop_event):
                 leds_ctl.yield_()
                 _set_status(state="yield", note="YIELD sign (no red line)")
                 timing = _cfg.get("timing", {})
-                _wait(stop_event, float(timing.get("yield_dwell", 0.6)))
+                if obstacle.traffic_present():
+                    _wait_for_clear(obstacle, leds_ctl, stop_event, timing)
+                else:
+                    _wait(stop_event, float(timing.get("yield_dwell", 0.6)))
                 yield_sign_since = 0.0
                 cooldown_until = time.time() + 4.0
                 _set_status(state="cruise", last="yield(no-line)")
@@ -227,10 +259,11 @@ def main(camera, wheels, leds, stop_event):
             if pending_turn is not None and pending_since > 0.0 and now - pending_since > sign_timeout and now >= cooldown_until:
                 print(f"[project] intersection timeout (no red line) -> turn: {pending_turn}")
                 _drive(wheels, 0.0, 0.0)
-                handled = _handle_intersection(wheels, leds_ctl, observations, pending_turn, stop_event)
+                handled = _handle_intersection(wheels, leds_ctl, obstacle, observations, pending_turn, pending_gate, stop_event)
                 pending_turn = None
                 pending_src = None
                 pending_since = 0.0
+                pending_gate = None
                 stop_sign_since = 0.0
                 yield_sign_since = 0.0
                 cooldown_until = time.time() + 4.0
@@ -265,14 +298,18 @@ def main(camera, wheels, leds, stop_event):
 
 
 # ----------------------------------------------------------------------------
-def _handle_intersection(wheels, leds_ctl, observations, pending_turn, stop_event):
+def _handle_intersection(wheels, leds_ctl, obstacle, observations, pending_turn, pending_gate, stop_event):
     """We have reached the red stop line. Apply stop/yield right-of-way, then
     execute the queued turn (from a sign or a button). Returns a short
     description of what we did."""
     timing = _cfg.get("timing", {})
 
-    # what signs do we see right now?
+    # signs we see right now, plus the category that queued this turn. The gate
+    # matters because a combined sign (e.g. yield_left) is usually behind us by
+    # the time we reach the line, so it won't be in `observations` anymore.
     types = {o.sign_type for o in observations}
+    if pending_gate:
+        types.add(pending_gate)
 
     # --- right-of-way gating ---
     if STOP in types:
@@ -280,14 +317,21 @@ def _handle_intersection(wheels, leds_ctl, observations, pending_turn, stop_even
         print("[project] STOP sign: full stop")
         if not _wait(stop_event, float(timing.get("stop_dwell", 2.0))):
             return "stop(interrupted)"
-        # give way to crossing traffic ("from the right has precedence")
-        if not _wait(stop_event, float(timing.get("clear_time", 2.0))):
+        # right-of-way: hold until crossing traffic has actually cleared
+        if _wait_for_clear(obstacle, leds_ctl, stop_event, timing) == "interrupted":
             return "stop(interrupted)"
-    elif YIELD in types:
+    elif types & YIELD_SIGNS:
         leds_ctl.yield_()
-        print("[project] YIELD sign: slowing")
-        if not _wait(stop_event, float(timing.get("yield_dwell", 0.6))):
-            return "yield(interrupted)"
+        if obstacle.traffic_present():
+            # there IS crossing traffic -> give way until the lane is clear
+            print("[project] YIELD: crossing traffic -> holding")
+            if _wait_for_clear(obstacle, leds_ctl, stop_event, timing) == "interrupted":
+                return "yield(interrupted)"
+        else:
+            # clear -> just a brief slow-down, then proceed
+            print("[project] YIELD: clear -> brief slow")
+            if not _wait(stop_event, float(timing.get("yield_dwell", 0.6))):
+                return "yield(interrupted)"
     elif PEDESTRIAN in types and pending_turn is None:
         leds_ctl.yield_()
         print("[project] pedestrian crossing: pausing")
@@ -298,8 +342,35 @@ def _handle_intersection(wheels, leds_ctl, observations, pending_turn, stop_even
     # --- the turn: use the queued one, else pick a random allowed/straight ---
     turn = pending_turn or random.choice(_allowed_turns(observations))
     print(f"[project] stop line reached -> turn: {turn}")
-    _execute_turn(wheels, leds_ctl, turn, stop_event)
+    _execute_turn(wheels, leds_ctl, obstacle, turn, stop_event)
     return f"turn:{turn}"
+
+
+def _wait_for_clear(obstacle, leds_ctl, stop_event, timing):
+    """Right-of-way: stay stopped (amber LEDs) until no crossing traffic has been
+    seen for `clear_time` continuously, or until `yield_max_wait` elapses (a
+    safety cap so we never hang). Returns 'clear', 'timeout', or 'interrupted'.
+
+    Relies on the camera-based detector via obstacle.traffic_present(); if that's
+    unavailable it returns clear immediately, so behaviour degrades to the plain
+    dwell the caller already applied."""
+    clear_needed = float(timing.get("clear_time", 1.0))
+    max_wait     = float(timing.get("yield_max_wait", 8.0))
+    start = time.time()
+    clear_since = None
+    leds_ctl.yield_()
+    while not stop_event.is_set():
+        if time.time() - start > max_wait:
+            print("[project] right-of-way wait timed out -> proceeding")
+            return "timeout"
+        if obstacle.traffic_present():
+            clear_since = None                 # traffic in view -> reset the clear timer
+        elif clear_since is None:
+            clear_since = time.time()          # just went clear; start counting
+        elif time.time() - clear_since >= clear_needed:
+            return "clear"                     # clear long enough -> go
+        time.sleep(0.05)
+    return "interrupted"
 
 
 def _allowed_turns(observations):
@@ -313,14 +384,49 @@ def _allowed_turns(observations):
     return turns or [STRAIGHT]
 
 
-def _execute_turn(wheels, leds_ctl, turn, stop_event):
+def _drive_for(wheels, left, right, secs, stop_event, obstacle, leds_ctl, on_move=None):
+    """Drive at (left, right) for `secs` of actual MOVING time, pausing (wheels
+    stopped, hazard LEDs) whenever an obstacle is detected ahead. Paused time is
+    not counted against `secs`, so the open-loop arc keeps its intended shape -
+    the bot just freezes mid-turn until the duck clears, then resumes the arc.
+    `on_move` (optional) is called when (re)starting motion, to (re)assert the
+    turn-signal LED. Returns False if a shutdown was requested."""
+    remaining = float(secs)
+    was_blocked = True            # force on_move + drive on the first moving step
+    while remaining > 0.0:
+        if stop_event.is_set():
+            _drive(wheels, 0.0, 0.0)
+            return False
+        blocked, _ = obstacle.status()
+        if blocked:
+            if not was_blocked:
+                _drive(wheels, 0.0, 0.0)
+                leds_ctl.hazard()
+            was_blocked = True
+            time.sleep(0.05)
+            continue              # paused: do NOT decrement remaining
+        if was_blocked:
+            if on_move:
+                on_move()
+            _drive(wheels, left, right)
+            was_blocked = False
+        time.sleep(0.05)
+        remaining -= 0.05
+    _drive(wheels, 0.0, 0.0)
+    return True
+
+
+def _execute_turn(wheels, leds_ctl, obstacle, turn, stop_event):
     """Open-loop timed maneuver - a gradual forward arc, not a pivot.
 
     Each direction (left/right/straight) has its own speed, sharpness and
     duration so they can be tuned independently: a left turn is a wider, deeper
     arc (crosses to the far lane), a right turn is tighter. Both wheels keep
     moving forward; `sharpness` is the small speed difference between them
-    (radius ~ speed/sharpness, angle ~ sharpness x duration)."""
+    (radius ~ speed/sharpness, angle ~ sharpness x duration).
+
+    The maneuver pauses for obstacles ahead (via _drive_for) so a duck that
+    appears mid-turn freezes the bot instead of being run over."""
     tcfg = _cfg.get("turn", {})
 
     p = tcfg.get(turn, {}) or {}
@@ -331,24 +437,19 @@ def _execute_turn(wheels, leds_ctl, turn, stop_event):
 
     # ease into the intersection first; left turn gets a slight left lean during
     # creep to counteract the rightward drift that builds up at equal wheel speeds
-    leds_ctl.cruise()
     creep_lean = float(p.get("creep_lean", 0.0))
-    _drive(wheels, speed - creep_lean, speed + creep_lean)
-    if not _wait(stop_event, creep_s):
-        _drive(wheels, 0.0, 0.0)
+    if not _drive_for(wheels, speed - creep_lean, speed + creep_lean, creep_s,
+                      stop_event, obstacle, leds_ctl, on_move=leds_ctl.cruise):
         return
 
     if turn == LEFT:
-        leds_ctl.signal_left()
-        _drive(wheels, speed - sharpness, speed + sharpness)
+        l, r, on_move = speed - sharpness, speed + sharpness, leds_ctl.signal_left
     elif turn == RIGHT:
-        leds_ctl.signal_right()
-        _drive(wheels, speed + sharpness, speed - sharpness)
+        l, r, on_move = speed + sharpness, speed - sharpness, leds_ctl.signal_right
     else:  # straight
-        leds_ctl.cruise()
-        _drive(wheels, speed, speed)
+        l, r, on_move = speed, speed, leds_ctl.cruise
 
-    _wait(stop_event, duration)
+    _drive_for(wheels, l, r, duration, stop_event, obstacle, leds_ctl, on_move=on_move)
     _drive(wheels, 0.0, 0.0)
 
 
@@ -422,15 +523,18 @@ def _set_status(**kw):
 
 
 def _annotate(signs, lane, frame, observations, dbg, state):
-    global _overlay
+    global _overlay, _overlay_ts
     img = frame.copy()
     signs.draw(img, observations)
+    if _obstacle is not None:
+        _obstacle.draw(img)        # detection boxes + traffic watch-band
     if dbg:
         lane.draw(img, dbg)
     cv2.putText(img, f"state: {state}", (8, 22),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
     with _lock:
         _overlay = img
+        _overlay_ts = time.time()
 
 
 def _consume_force_turn():
