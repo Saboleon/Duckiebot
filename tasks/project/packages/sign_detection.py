@@ -121,42 +121,66 @@ class SignDetector:
         self.observe_px = float(det.get("observe_px", 28))
         self.act_px     = float(det.get("act_px", 72))
 
-        # Support both OpenCV 4.7+ (ArucoDetector class) and older versions
-        # (the Jetson JetPack SDK ships OpenCV 4.1-4.6).
+        # AprilTag backend. Try, in order:
+        #   1. OpenCV 4.7+ aruco (ArucoDetector class)
+        #   2. older OpenCV aruco (Dictionary_get / detectMarkers)
+        #   3. the dedicated apriltag library (dt_apriltags / pupil_apriltags) —
+        #      the Jetson's JetPack OpenCV is often built WITHOUT the aruco module,
+        #      so this is the one that actually works on the real bot.
+        self._backend = None
         try:
             dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
             params = cv2.aruco.DetectorParameters()
             self._detector = cv2.aruco.ArucoDetector(dictionary, params)
-            self._legacy_aruco = False
-        except AttributeError:
-            dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_APRILTAG_36h11)
-            params = cv2.aruco.DetectorParameters_create()
-            self._aruco_dict   = dictionary
-            self._aruco_params = params
-            self._detector     = None
-            self._legacy_aruco = True
+            self._backend = "aruco_new"
+        except Exception:
+            try:
+                self._aruco_dict   = cv2.aruco.Dictionary_get(cv2.aruco.DICT_APRILTAG_36h11)
+                self._aruco_params = cv2.aruco.DetectorParameters_create()
+                self._backend = "aruco_legacy"
+            except Exception:
+                self._apriltag = self._init_apriltag_lib()
+                self._backend = "apriltag_lib"
+        print(f"[SignDetector] AprilTag backend = {self._backend}")
+
+    @staticmethod
+    def _init_apriltag_lib():
+        """Build a tag36h11 detector from whichever apriltag library is installed.
+        Raises ImportError if none is available (caller falls back to dummy)."""
+        try:
+            from dt_apriltags import Detector
+        except ImportError:
+            from pupil_apriltags import Detector  # same API
+        return Detector(families="tag36h11", nthreads=2)
 
     # -- detection ---------------------------------------------------------
     def detect(self, frame_bgr):
         """Return a list of SignObservation for every known tag in the frame."""
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-        if self._legacy_aruco:
-            corners, ids, _ = cv2.aruco.detectMarkers(gray, self._aruco_dict, parameters=self._aruco_params)
-        else:
-            corners, ids, _ = self._detector.detectMarkers(gray)
-        out = []
-        if ids is None:
-            return out
 
-        for quad, tag_id in zip(corners, ids.flatten()):
-            tag_id = int(tag_id)
+        # gather (tag_id, corners 4x2) pairs from whichever backend is active
+        found = []
+        if self._backend == "apriltag_lib":
+            for r in self._apriltag.detect(gray):
+                found.append((int(r.tag_id), np.asarray(r.corners, dtype=float)))
+        else:
+            if self._backend == "aruco_legacy":
+                corners, ids, _ = cv2.aruco.detectMarkers(
+                    gray, self._aruco_dict, parameters=self._aruco_params)
+            else:
+                corners, ids, _ = self._detector.detectMarkers(gray)
+            if ids is not None:
+                for quad, tag_id in zip(corners, ids.flatten()):
+                    found.append((int(tag_id), quad.reshape(-1, 2).astype(float)))
+
+        out = []
+        for tag_id, pts in found:
             sign_type = self.id_to_sign.get(tag_id, UNKNOWN)
             if sign_type == UNKNOWN and not self.discovery_mode:
                 continue
             if sign_type == UNKNOWN and tag_id not in self._reported_ids:
                 print(f"[SignDetector] DISCOVERY: tag_id={tag_id} (add to signs_real in project_config.yaml)")
                 self._reported_ids.add(tag_id)
-            pts = quad.reshape(-1, 2)
             h = float(pts[:, 1].max() - pts[:, 1].min())
             if h <= 0:
                 continue

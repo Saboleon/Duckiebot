@@ -137,7 +137,7 @@ def main(camera, wheels, leds, stop_event, sim=False):
     try:
         signs = SignDetector(_cfg, sim=sim)
         print(f"[project] SignDetector OK: discovery={getattr(signs, 'discovery_mode', '?')}, "
-              f"legacy_aruco={getattr(signs, '_legacy_aruco', '?')}")
+              f"backend={getattr(signs, '_backend', '?')}")
     except Exception as e:
         print(f"[project] SignDetector failed: {e}")
         _set_status(state="init", note=f"signs error: {e}")

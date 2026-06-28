@@ -22,28 +22,45 @@ print("APRILTAG DIAGNOSTIC")
 print("=" * 60)
 print(f"OpenCV version: {cv2.__version__}")
 
-# ---- 1. aruco availability -------------------------------------------------
-if not hasattr(cv2, "aruco"):
-    print("\nFAIL: cv2.aruco is NOT available in this OpenCV build.")
-    print("  -> AprilTag detection can't work. OpenCV needs the contrib/aruco module.")
-    sys.exit(1)
-print("OK: cv2.aruco is available")
+# ---- 1. pick an AprilTag backend (aruco, or the apriltag library) ----------
+backend = None
+detector = None
+dictionary = params = None
+apriltag_det = None
 
-try:
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
-    params = cv2.aruco.DetectorParameters()
-    detector = cv2.aruco.ArucoDetector(dictionary, params)
-    legacy = False
-    print("OK: using NEW aruco API (ArucoDetector)")
-except AttributeError:
+if hasattr(cv2, "aruco"):
+    print("OK: cv2.aruco is available")
     try:
-        dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_APRILTAG_36h11)
-        params = cv2.aruco.DetectorParameters_create()
-        detector = None
-        legacy = True
-        print("OK: using LEGACY aruco API (Dictionary_get)")
-    except AttributeError as e:
-        print(f"\nFAIL: DICT_APRILTAG_36h11 not available: {e}")
+        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+        params = cv2.aruco.DetectorParameters()
+        detector = cv2.aruco.ArucoDetector(dictionary, params)
+        backend = "aruco_new"
+        print("OK: using NEW aruco API (ArucoDetector)")
+    except Exception:
+        try:
+            dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_APRILTAG_36h11)
+            params = cv2.aruco.DetectorParameters_create()
+            backend = "aruco_legacy"
+            print("OK: using LEGACY aruco API (Dictionary_get)")
+        except Exception:
+            print("WARN: cv2.aruco lacks DICT_APRILTAG_36h11")
+else:
+    print("WARN: cv2.aruco is NOT in this OpenCV build")
+
+if backend is None:
+    try:
+        try:
+            from dt_apriltags import Detector
+            libname = "dt_apriltags"
+        except ImportError:
+            from pupil_apriltags import Detector
+            libname = "pupil_apriltags"
+        apriltag_det = Detector(families="tag36h11", nthreads=2)
+        backend = "apriltag_lib"
+        print(f"OK: using apriltag library ({libname})")
+    except ImportError:
+        print("\nFAIL: no AprilTag backend available (no aruco, no dt_apriltags/pupil_apriltags).")
+        print("  -> install one on the bot:  pip3 install dt-apriltags")
         sys.exit(1)
 
 # ---- 2. camera -------------------------------------------------------------
@@ -70,16 +87,19 @@ while time.time() < end:
         continue
     frames += 1
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    if legacy:
-        corners, ids, _ = cv2.aruco.detectMarkers(gray, dictionary, parameters=params)
+    tag_ids = []
+    if backend == "apriltag_lib":
+        tag_ids = [int(r.tag_id) for r in apriltag_det.detect(gray)]
+    elif backend == "aruco_legacy":
+        _, ids, _ = cv2.aruco.detectMarkers(gray, dictionary, parameters=params)
+        tag_ids = [int(t) for t in ids.flatten()] if ids is not None else []
     else:
-        corners, ids, _ = detector.detectMarkers(gray)
-    if ids is not None:
-        for tid in ids.flatten():
-            tid = int(tid)
-            if tid not in seen:
-                seen.add(tid)
-                print(f"  >>> DETECTED tag_id = {tid}")
+        _, ids, _ = detector.detectMarkers(gray)
+        tag_ids = [int(t) for t in ids.flatten()] if ids is not None else []
+    for tid in tag_ids:
+        if tid not in seen:
+            seen.add(tid)
+            print(f"  >>> DETECTED tag_id = {tid}")
     time.sleep(0.05)
 
 cam.stop()
