@@ -5,7 +5,7 @@
 # no wheels, no obstacle model). Deploy + Start as usual, open the bot page, and
 # hold signs in front of the camera to read their tag IDs from the video + the
 # "discovered_sign_ids" status. Set back to false to drive normally.
-discovery_only: true
+discovery_only: false
 
 # Everything the agent reads at runtime lives here so it can be tuned
 # live from the dashboard (or by editing this file) without touching code.
