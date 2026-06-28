@@ -562,9 +562,13 @@ def _execute_turn(wheels, leds_ctl, obstacle, turn, stop_event):
     sharpness = float(p.get("sharpness", 0.05))   # unused for straight
     creep_s   = float(p.get("creep_s", tcfg.get("creep_s", 0.5)))
 
-    # ease into the intersection first; left turn gets a slight left lean during
-    # creep to counteract the rightward drift that builds up at equal wheel speeds
-    creep_lean = float(p.get("creep_lean", 0.0))
+    # turn.trim corrects the sim's systematic rightward drift in open-loop driving
+    # (no PD controller here). positive = boost left / slow right = steer left.
+    # Applied to BOTH the creep and the arc so every maneuver tracks straight.
+    turn_trim = float(tcfg.get("trim", 0.0))
+
+    # ease into the intersection first; left turn gets a slight extra left lean
+    creep_lean = float(p.get("creep_lean", 0.0)) + turn_trim
     if not _drive_for(wheels, speed - creep_lean, speed + creep_lean, creep_s,
                       stop_event, obstacle, leds_ctl, on_move=leds_ctl.cruise):
         return
@@ -576,6 +580,7 @@ def _execute_turn(wheels, leds_ctl, obstacle, turn, stop_event):
     else:  # straight
         l, r, on_move = speed, speed, leds_ctl.cruise
 
+    l, r = l + turn_trim, r - turn_trim   # apply drift correction to the arc too
     _drive_for(wheels, l, r, duration, stop_event, obstacle, leds_ctl, on_move=on_move)
     _drive(wheels, 0.0, 0.0)
 
