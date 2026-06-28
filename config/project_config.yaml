@@ -13,20 +13,21 @@
 # ---------------------------------------------------------------------
 
 # ---- SIMULATION sign IDs (Godot map) ----------------------------------------
-# These are the tag36h11 IDs placed in the Godot scene. Used when running with
-# `python launch.py --sim --task project`.
+# NOTE: this is the REAL-BOT config — the agent reads `signs_real` below.
+# `signs_sim` here is never used (the sim loads project_config_sim.yaml).
+# Kept empty just so the file structure matches the sim config.
 signs_sim:
-  stop: [24, 25, 26]
-  yield: [39]
-  pedestrian: [20]
-  t_right: [9]    # straight or right
-  t_left: [10]    # straight or left
-  t_junction: [11] # left or right (road ends ahead)
-  turn_left: [50]
-  turn_right: [51]
-  go_straight: [52]
-  yield_left: [54]
-  parking: [53]
+  stop: []
+  yield: []
+  pedestrian: []
+  t_right: []
+  t_left: []
+  t_junction: []
+  turn_left: []
+  turn_right: []
+  go_straight: []
+  yield_left: []
+  parking: []
 
 # ---- REAL BOT sign IDs (physical Duckietown track) --------------------------
 # Fill these in by reading the IDs off the real signs with the detector before
