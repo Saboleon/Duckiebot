@@ -93,14 +93,16 @@ def apply_command(key, value):
     if k in ("pause", "stop_driving"):
         return f"paused = {set_paused(True)}"
     if k in ("resume", "go"):
-        _manual_wheels = None
+        _manual_wheels = None   # exit manual drive
+        _force_turn    = None   # cancel any queued turn
         return f"paused = {set_paused(False)}"
     if k == "force_turn":
         turn = str(value).strip().lower()
         if turn not in (LEFT, RIGHT, STRAIGHT):
             raise ValueError("force_turn must be left, right or straight")
         _force_turn = turn
-        return f"force_turn queued: {turn}"
+        _manual_wheels = None   # exit manual mode so the turn actually executes
+        return f"force_turn: {turn}"
     if k == "drive":
         parts = str(value).split(',')
         if len(parts) == 2:
