@@ -46,13 +46,13 @@ _CONTENT = '''
                         ontouchstart="startDrive(0.28,0.28)" ontouchend="stopDrive()">&#8593;</button>
                     <div></div>
                     <button class="button" id="btn-left"
-                        onmousedown="startDrive(0.05,0.28)" onmouseup="stopDrive()"
-                        ontouchstart="startDrive(0.05,0.28)" ontouchend="stopDrive()">&#8592;</button>
+                        onmousedown="startDrive(0.10,0.28)" onmouseup="stopDrive()"
+                        ontouchstart="startDrive(0.10,0.28)" ontouchend="stopDrive()">&#8592;</button>
                     <button class="button danger" id="btn-stop"
                         onmousedown="stopDrive()" ontouchstart="stopDrive()">&#9632;</button>
                     <button class="button" id="btn-right"
-                        onmousedown="startDrive(0.28,0.05)" onmouseup="stopDrive()"
-                        ontouchstart="startDrive(0.28,0.05)" ontouchend="stopDrive()">&#8594;</button>
+                        onmousedown="startDrive(0.28,0.10)" onmouseup="stopDrive()"
+                        ontouchstart="startDrive(0.28,0.10)" ontouchend="stopDrive()">&#8594;</button>
                     <div></div>
                     <button class="button" id="btn-bwd"
                         onmousedown="startDrive(-0.22,-0.22)" onmouseup="stopDrive()"

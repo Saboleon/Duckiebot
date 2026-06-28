@@ -48,11 +48,15 @@ _cfg = {}                # live config (mutable via apply_command)
 _paused = False          # when True the agent holds still (sim convenience)
 _force_turn = None       # set to "left"/"right"/"straight" to trigger one turn
 _manual_wheels = None    # (left, right) set by 'drive' command; None = autonomous
+_discovered_ids = {}     # {tag_id: sign_type} seen in discovery mode — shown in status
 
 
 def get_status():
     with _lock:
-        return dict(_status)
+        st = dict(_status)
+    if _discovered_ids:
+        st["discovered_sign_ids"] = sorted(_discovered_ids.keys())
+    return st
 
 
 def get_overlay(max_age=None):
@@ -106,8 +110,8 @@ def apply_command(key, value):
             return f"manual drive: l={l:.2f} r={r:.2f}"
         raise ValueError("drive value must be 'left,right' e.g. '0.3,0.3'")
     if k in ("drive_stop", "manual_stop"):
-        _manual_wheels = None
-        return "manual drive cleared"
+        _manual_wheels = (0.0, 0.0)   # stay stopped in manual mode; 'resume' exits
+        return "manual stopped"
 
     parsed = _parse_value(value)
     node = _cfg
@@ -209,6 +213,12 @@ def main(camera, wheels, leds, stop_event, sim=False):
 
             every = max(1, int(_cfg.get("detection", {}).get("every_n_frames", 1)))
             observations = signs.detect(frame) if (frame_i % every == 0) else []
+
+            # accumulate discovered IDs (unknown tags seen in discovery mode)
+            for obs in observations:
+                if obs.sign_type == "unknown" and obs.tag_id not in _discovered_ids:
+                    _discovered_ids[obs.tag_id] = "unknown"
+                    print(f"[project] SIGN DISCOVERED: tag_id={obs.tag_id}")
 
             blocked, block_reason = obstacle.status()
             at_line, line_frac = stopline.detect(frame)
@@ -443,16 +453,15 @@ def _allowed_turns(observations):
 
 
 def _drive_for(wheels, left, right, secs, stop_event, obstacle, leds_ctl, on_move=None):
-    """Drive at (left, right) for `secs` of actual MOVING time, pausing (wheels
-    stopped, hazard LEDs) whenever an obstacle is detected ahead. Paused time is
-    not counted against `secs`, so the open-loop arc keeps its intended shape -
-    the bot just freezes mid-turn until the duck clears, then resumes the arc.
-    `on_move` (optional) is called when (re)starting motion, to (re)assert the
-    turn-signal LED. Returns False if a shutdown was requested."""
+    """Drive at (left, right) for `secs` of actual MOVING time.
+    Pauses for obstacles ahead; aborts if a manual drive command arrives."""
     remaining = float(secs)
-    was_blocked = True            # force on_move + drive on the first moving step
+    was_blocked = True
     while remaining > 0.0:
         if stop_event.is_set():
+            _drive(wheels, 0.0, 0.0)
+            return False
+        if _manual_wheels is not None:   # manual override → abort turn
             _drive(wheels, 0.0, 0.0)
             return False
         blocked, _ = obstacle.status()
@@ -462,7 +471,7 @@ def _drive_for(wheels, left, right, secs, stop_event, obstacle, leds_ctl, on_mov
                 leds_ctl.hazard()
             was_blocked = True
             time.sleep(0.05)
-            continue              # paused: do NOT decrement remaining
+            continue
         if was_blocked:
             if on_move:
                 on_move()

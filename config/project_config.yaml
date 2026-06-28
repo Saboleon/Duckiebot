@@ -99,15 +99,15 @@ timing:
 turn:
   creep_s: 1.2 # ease straight into the intersection first (all turns)
   left:
-    creep_s: 1.3 # shorter run-in so it doesn't cross in too deep
-    creep_lean: 0.0 # no lean (0.04 made it swing too far left)
-    speed: 0.40 # wider arc -> a bit faster
-    sharpness: 0.06 # gentler -> larger radius
-    duration: 2.7 # shorter arc so it doesn't overshoot the far lane
+    creep_s: 0.5   # short run-in — real bot reaches turn point quickly
+    creep_lean: 0.0
+    speed: 0.28
+    sharpness: 0.14  # sharp arc: left=0.14 right=0.42, ratio 3:1
+    duration: 2.4
   right:
     creep_s: 0.6
     speed: 0.30
-    sharpness: 0.03 # a touch wider so it stops clipping the corner sign
+    sharpness: 0.03
     duration: 1.4
   straight:
     speed: 0.28 # clear the intersection briskly
