@@ -76,8 +76,8 @@ turn:
 
 obstacle:
   enabled: true
-  stop_y_frac: 0.45
-  min_height_frac: 0.04
+  stop_y_frac: 0.6
+  min_height_frac: 0.06
   lane_x_min_frac: 0.30
 
 yield_traffic:
