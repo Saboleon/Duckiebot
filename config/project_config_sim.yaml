@@ -52,10 +52,10 @@ stopline:
   trigger_area_frac: 0.09
 
 timing:
-  stop_dwell: 0.5
-  yield_dwell: 0.4
-  clear_time: 0.8
-  yield_max_wait: 8.0
+  stop_dwell: 1.0       # full stop held longer (was 0.5)
+  yield_dwell: 0.6      # brief pause at yield (was 0.4)
+  clear_time: 1.5       # intersection must be clear this long before going (was 0.8)
+  yield_max_wait: 12.0  # safety cap on waiting (was 8.0)
 
 turn:
   creep_s: 1.2
@@ -76,13 +76,13 @@ turn:
 
 obstacle:
   enabled: true
-  stop_y_frac: 0.6
-  min_height_frac: 0.06
+  stop_y_frac: 0.5        # stop earlier (was 0.6) — more braking distance
+  min_height_frac: 0.04   # detect smaller/farther ducks (was 0.06)
   lane_x_min_frac: 0.30
 
 yield_traffic:
   enabled: true
   classes: []
   min_score: 0.5
-  zone_top_frac: 0.30
-  zone_bottom_frac: 0.80
+  zone_top_frac: 0.20     # watch a wider vertical band for crossing traffic (was 0.30)
+  zone_bottom_frac: 0.85
