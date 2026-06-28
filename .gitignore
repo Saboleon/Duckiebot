@@ -58,6 +58,4 @@ htmlcov/
 tasks/object_detection/dataset/*
 
 # Model artifacts
-tasks/object_detection/models/*
-
 .claude
