@@ -195,20 +195,25 @@ document.addEventListener('keyup', e => {
         stopDrive();
 });
 
-// Video polling — 200ms (5fps) is enough and doesn't flood the WiFi link
+// Video polling — retry forever, show banner when disconnected
 let _videoErrors = 0;
+const _banner = document.createElement('div');
+_banner.style = 'display:none;position:fixed;top:0;left:0;width:100%;background:#c0392b;color:#fff;text-align:center;padding:6px;font-weight:bold;z-index:999';
+_banner.textContent = 'Connection lost — retrying...';
+document.body.prepend(_banner);
+
 (function pollVideo() {
     const next = new Image();
     next.onload = function() {
         document.getElementById('videoStream').src = this.src;
         _videoErrors = 0;
+        _banner.style.display = 'none';
         setTimeout(pollVideo, 200);
     };
     next.onerror = function() {
         _videoErrors++;
-        // after 30 consecutive failures (~15 s) reload the page to reconnect
-        if (_videoErrors >= 30) { location.reload(); return; }
-        setTimeout(pollVideo, 500);
+        if (_videoErrors >= 5) _banner.style.display = 'block';
+        setTimeout(pollVideo, 1000);
     };
     next.src = '/snapshot?' + Date.now();
 })();

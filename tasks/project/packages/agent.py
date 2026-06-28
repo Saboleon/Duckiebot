@@ -49,6 +49,7 @@ _paused = False          # when True the agent holds still (sim convenience)
 _force_turn = None       # set to "left"/"right"/"straight" to trigger one turn
 _manual_wheels = None    # (left, right) set by 'drive' command; None = autonomous
 _discovered_ids = {}     # {tag_id: sign_type} seen in discovery mode — shown in status
+_sign_detector_ok = True # False if SignDetector init failed (shown in status)
 
 
 def get_status():
@@ -56,6 +57,8 @@ def get_status():
         st = dict(_status)
     if _discovered_ids:
         st["discovered_sign_ids"] = sorted(_discovered_ids.keys())
+    if not _sign_detector_ok:
+        st["sign_detector"] = "FAILED - check Jetson OpenCV/aruco"
     return st
 
 
@@ -130,12 +133,14 @@ def main(camera, wheels, leds, stop_event, sim=False):
     _cfg = _load_config(_CONFIG_FILE_SIM if sim else _CONFIG_FILE)
 
     _set_status(state="init", note="loading signs")
+    _sign_detector_ok = True
     try:
         signs = SignDetector(_cfg, sim=sim)
     except Exception as e:
         print(f"[project] SignDetector failed: {e}")
         _set_status(state="init", note=f"signs error: {e}")
         signs = _DummySigns()
+        _sign_detector_ok = False
 
     _set_status(state="init", note="loading lane follower")
     try:
