@@ -182,6 +182,7 @@ def main(camera, wheels, leds, stop_event, sim=False):
     stop_sign_since = 0.0         # when a STOP sign was first seen at act distance
     yield_sign_since = 0.0        # when a YIELD sign was first seen at act distance
     cooldown_until = 0.0          # ignore the stop line again until this time
+    blocked_since = 0.0           # when the obstacle block started (0 = not blocked)
     frame_i = 0
 
     _set_status(state="cruise", note="started")
@@ -236,13 +237,25 @@ def main(camera, wheels, leds, stop_event, sim=False):
             at_line, line_frac = stopline.detect(frame)
             now = time.time()
 
-            # ---- obstacle overrides everything ----
+            # ---- obstacle overrides everything (but not forever) ----
+            # A stopped car/duck ahead halts us; after max_block_s of being stuck
+            # we creep forward so a parked obstacle can never freeze us for good.
+            max_block_s = float(_cfg.get("obstacle", {}).get("max_block_s", 4.0))
             if blocked:
-                leds_ctl.hazard()
-                _drive(wheels, 0.0, 0.0)
-                _set_status(state="obstacle", note=block_reason or "obstacle ahead")
-                _annotate(signs, lane, frame, observations, {}, "obstacle: duckie ahead")
-                continue
+                if blocked_since == 0.0:
+                    blocked_since = now
+                if now - blocked_since < max_block_s:
+                    leds_ctl.hazard()
+                    _drive(wheels, 0.0, 0.0)
+                    _set_status(state="obstacle", note=block_reason or "obstacle ahead",
+                                waited=round(now - blocked_since, 1))
+                    _annotate(signs, lane, frame, observations, {}, "obstacle: stopped ahead")
+                    continue
+                # waited long enough — obstacle isn't moving, ease past it
+                _set_status(state="obstacle", note="blocked too long -> creeping past")
+                # fall through to normal lane following (creeps via lane logic)
+            else:
+                blocked_since = 0.0
 
             # ---- force_turn command: execute immediately (don't wait for red line) ----
             if _force_turn is not None:

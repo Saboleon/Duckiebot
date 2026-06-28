@@ -130,6 +130,9 @@ obstacle:
   # as being in our lane. ducks whose center is further left are assumed to be
   # in the oncoming lane. raise (e.g. 0.40) if the bot still stops for oncoming ducks.
   lane_x_min_frac: 0.30
+  # after this many seconds stuck behind a stopped obstacle (e.g. a parked car at
+  # a line), creep forward instead of waiting forever. raise to be more patient.
+  max_block_s: 4.0
 
 # right-of-way at yield/stop signs: the bot holds until crossing traffic clears,
 # detected via the object detector (camera-based, so it works in sim and on the

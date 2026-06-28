@@ -79,6 +79,7 @@ obstacle:
   stop_y_frac: 0.6
   min_height_frac: 0.06
   lane_x_min_frac: 0.30
+  max_block_s: 4.0   # after this long stuck behind a stopped obstacle, creep past it
 
 yield_traffic:
   enabled: true
