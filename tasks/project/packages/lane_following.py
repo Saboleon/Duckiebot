@@ -20,9 +20,11 @@ class LaneFollower:
         try:
             with open(config_path) as f:
                 sc = yaml.safe_load(f) or {}
-            self._trim = float(sc.get('trim', 0.0))
+            self._trim          = float(sc.get('trim', 0.0))
+            self._creep_on_lost = bool(sc.get('creep_on_lost', not sim))
         except Exception:
-            self._trim = 0.0
+            self._trim          = 0.0
+            self._creep_on_lost = not sim  # sim stops, real bot creeps
 
     def compute(self, frame_bgr, base_speed):
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
@@ -32,8 +34,11 @@ class LaneFollower:
         ratio = base_speed / self._nominal if self._nominal > 1e-6 else 1.0
 
         if not info.get('lane_detected', False):
-            creep = base_speed * 0.35
-            left, right = creep, creep
+            if self._creep_on_lost:
+                creep = base_speed * 0.35
+                left, right = creep, creep
+            else:
+                left, right = 0.0, 0.0
         else:
             left  = float(np.clip((left  + self._trim) * ratio, 0.0, 1.0))
             right = float(np.clip((right - self._trim) * ratio, 0.0, 1.0))
