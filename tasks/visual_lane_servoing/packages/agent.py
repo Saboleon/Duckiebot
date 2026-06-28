@@ -66,7 +66,7 @@ class LaneServoingAgent:
         self.frame_count        = 0
         self._prev_error        = 0.0
         self._filtered_error    = 0.0
-        self._lane_half_width   = float(_LINE_OFFSET)
+        self._lane_half_width   = float(cfg.get('line_offset', _LINE_OFFSET))
         self._left_history      = deque(maxlen=3)
         self._right_history     = deque(maxlen=3)
         self.last_debug_info    = self._empty_debug_info(480, 640)

@@ -236,7 +236,6 @@ def main(camera, wheels, leds, stop_event, sim=False):
             if _force_turn is not None:
                 forced = _consume_force_turn()
                 print(f"[project] force_turn: {forced} — executing now")
-                _drive(wheels, 0.0, 0.0)
                 _execute_turn(wheels, leds_ctl, obstacle, forced, stop_event)
                 cooldown_until = time.time() + 4.0
                 _set_status(state="cruise", last=f"manual:{forced}")

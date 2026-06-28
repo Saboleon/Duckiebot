@@ -21,8 +21,18 @@ class LaneFollower:
 
     def __init__(self, cfg):
         self._agent = LaneServoingAgent()
-        # the servoing agent's own tuned speed is our "cruise" reference
         self._nominal = float(self._agent.base_speed) or 0.15
+        # trim: positive value boosts left wheel / slows right → corrects leftward drift
+        self._trim = float(self._agent.p_gain * 0)  # start at 0, read from config
+        try:
+            import yaml, os
+            cfg_path = os.path.normpath(os.path.join(
+                os.path.dirname(__file__), '..', '..', '..', 'config', 'lane_servoing_config.yaml'))
+            with open(cfg_path) as f:
+                sc = yaml.safe_load(f) or {}
+            self._trim = float(sc.get('trim', 0.0))
+        except Exception:
+            self._trim = 0.0
 
     def compute(self, frame_bgr, base_speed):
         """base_speed is the forward speed to aim for (cruise or approach)."""
@@ -33,14 +43,11 @@ class LaneFollower:
         ratio = base_speed / self._nominal if self._nominal > 1e-6 else 1.0
 
         if not info.get('lane_detected', False):
-            # Lane lost: creep forward slowly instead of stopping dead.
-            # This lets the bot drift back into view of the lane on curves
-            # rather than getting stuck.
             creep = base_speed * 0.35
             left, right = creep, creep
         else:
-            left  = float(np.clip(left  * ratio, 0.0, 1.0))
-            right = float(np.clip(right * ratio, 0.0, 1.0))
+            left  = float(np.clip((left  + self._trim) * ratio, 0.0, 1.0))
+            right = float(np.clip((right - self._trim) * ratio, 0.0, 1.0))
 
         debug = {
             "error":    round(float(info.get("lateral_error", 0.0)), 3),
