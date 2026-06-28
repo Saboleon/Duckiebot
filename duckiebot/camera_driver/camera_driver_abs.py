@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 
 
 class CameraDriverAbs(ABC):
-    def __init__(self,config_file: str = None):
+    def __init__(self, config_file: str = None):
         if config_file is None:
             current_dir = os.path.dirname(__file__)
             config_file = os.path.join(current_dir, 'config/camera_config.yaml')
@@ -18,11 +18,14 @@ class CameraDriverAbs(ABC):
 
         self._running = False
         self._frame_count = 0
-        self._last_frame: Optional[np.ndarray] = None
         self._device = None
-        self._consecutive_failures = 0
-        self._read_lock = threading.Lock()  # cv2.VideoCapture is not thread-safe
 
+        # Single-producer pattern: one background thread reads GStreamer/camera
+        # and stores the latest frame here. All consumers call read() which just
+        # returns a copy — no thread ever blocks on GStreamer directly.
+        self._latest_frame: Optional[np.ndarray] = None
+        self._frame_lock = threading.Lock()
+        self._capture_thread: Optional[threading.Thread] = None
 
     @abstractmethod
     def _initialize_camera(self):
@@ -36,6 +39,7 @@ class CameraDriverAbs(ABC):
     def _release_camera(self):
         pass
 
+    # -- lifecycle ---------------------------------------------------------
 
     def start(self):
         if self._running:
@@ -44,6 +48,12 @@ class CameraDriverAbs(ABC):
 
         self._initialize_camera()
         self._running = True
+
+        self._capture_thread = threading.Thread(
+            target=self._capture_loop, daemon=True, name='CameraCapture'
+        )
+        self._capture_thread.start()
+
         print(f"Camera started successfully at {self.width}x{self.height} @ {self.framerate}fps")
 
     def stop(self):
@@ -51,10 +61,35 @@ class CameraDriverAbs(ABC):
             print("[Camera] Already stopped")
             return
 
-        self._release_camera()
         self._running = False
-        self._last_frame = None
+        if self._capture_thread is not None:
+            self._capture_thread.join(timeout=2.0)
+            self._capture_thread = None
+
+        self._release_camera()
+        with self._frame_lock:
+            self._latest_frame = None
         print("Camera stopped")
+
+    # -- capture loop (single producer thread) -----------------------------
+
+    def _capture_loop(self):
+        """Continuously read from the hardware into _latest_frame."""
+        consecutive_failures = 0
+        while self._running:
+            ok, frame = self._capture_frame()
+            if ok and frame is not None:
+                with self._frame_lock:
+                    self._latest_frame = frame
+                    self._frame_count += 1
+                consecutive_failures = 0
+            else:
+                consecutive_failures += 1
+                if consecutive_failures > 60:
+                    print("[Camera] Too many consecutive read failures — stopping capture")
+                    break
+
+    # -- consumer API (safe to call from any thread) -----------------------
 
     def read(self) -> Tuple[bool, Optional[np.ndarray]]:
         if not self._running:
@@ -63,34 +98,19 @@ class CameraDriverAbs(ABC):
                 self._warned_not_running = True
             return False, None
 
-        with self._read_lock:
-            success, frame = self._capture_frame()
-
-            if success and frame is not None:
-                self._last_frame = frame.copy()
-                self._frame_count += 1
-                self._consecutive_failures = 0
-                return True, frame
-            else:
-                self._consecutive_failures += 1
-                if self._last_frame is not None and self._consecutive_failures < 30:
-                    return True, self._last_frame.copy()
-                return False, None
+        with self._frame_lock:
+            if self._latest_frame is not None:
+                return True, self._latest_frame.copy()
+        return False, None
 
     def read_jpeg(self) -> Tuple[bool, Optional[bytes]]:
-        success, frame = self.read()
-
-        if not success or frame is None:
+        ok, frame = self.read()
+        if not ok or frame is None:
             return False, None
-
-        # Encode to JPEG
         ret, jpeg = cv2.imencode('.jpg', frame)
-        if ret:
-            return True, jpeg.tobytes()
-        else:
-            return False, None
+        return (True, jpeg.tobytes()) if ret else (False, None)
 
-
+    # -- config ------------------------------------------------------------
 
     def _load_config(self, filepath: str):
         try:
@@ -115,14 +135,11 @@ class CameraDriverAbs(ABC):
         except FileNotFoundError:
             print(f"[CameraDriver] Warning: Config not found: {filepath}")
 
+    # -- properties --------------------------------------------------------
 
     @property
     def resolution(self) -> Tuple[int, int]:
-          return (self.width, self.height)
-
-
-    def framerate(self) -> int:
-        return self._framerate
+        return (self.width, self.height)
 
     @property
     def is_active(self) -> bool:
