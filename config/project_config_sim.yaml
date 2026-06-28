@@ -76,13 +76,13 @@ turn:
 
 obstacle:
   enabled: true
-  stop_y_frac: 0.5        # stop earlier (was 0.6) — more braking distance
-  min_height_frac: 0.04   # detect smaller/farther ducks (was 0.06)
+  stop_y_frac: 0.45
+  min_height_frac: 0.04
   lane_x_min_frac: 0.30
 
 yield_traffic:
   enabled: true
   classes: []
-  min_score: 0.5
-  zone_top_frac: 0.25    # only watch the middle band — avoids detecting cars stopped at our own line
-  zone_bottom_frac: 0.65
+  min_score: 0.4
+  zone_top_frac: 0.20
+  zone_bottom_frac: 0.72
