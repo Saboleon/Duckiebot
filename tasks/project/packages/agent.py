@@ -253,9 +253,17 @@ def main(camera, wheels, leds, stop_event, sim=False):
                                 waited=round(now - blocked_since, 1))
                     _annotate(signs, lane, frame, observations, {}, f"obstacle: {block_reason}")
                     continue
-                # car stuck too long — ease past it
-                _set_status(state="obstacle", note="vehicle blocking too long -> creeping past")
-                # fall through to normal lane following (creeps via lane logic)
+                # car stuck too long — creep straight past it. The car covers the
+                # lane markings, so lane following can't see them; drive an explicit
+                # slow forward creep instead of relying on lane detection.
+                creep = float(_cfg.get("speed", {}).get("approach", 0.15))
+                _drive(wheels, creep, creep)
+                leds_ctl.cruise()
+                _set_status(state="obstacle", note="vehicle blocking -> creeping past",
+                            waited=round(now - blocked_since, 1))
+                _annotate(signs, lane, frame, observations, {}, "creeping past vehicle")
+                time.sleep(0.05)
+                continue
             else:
                 blocked_since = 0.0
 
