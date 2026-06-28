@@ -195,6 +195,36 @@ class GodotCameraDriver(CameraDriverAbs):
             except (ConnectionError, socket.timeout):
                 return False
 
+    # -- override base-class lifecycle so the extra _capture_loop thread is
+    #    never started (GodotCameraDriver has its own _recv_thread already) --
+
+    def start(self):
+        if self._running:
+            print("[Camera] Already running")
+            return
+        self._initialize_camera()   # starts _recv_thread
+        self._running = True
+        print(f"Camera started successfully at {self.width}x{self.height} @ {self.framerate}fps")
+
+    def stop(self):
+        if not self._running:
+            print("[Camera] Already stopped")
+            return
+        self._running = False
+        self._release_camera()
+        print("Camera stopped")
+
+    def read(self) -> Tuple[bool, Optional[np.ndarray]]:
+        """Return the latest frame using _frame_condition (not _frame_lock)."""
+        if not self._running:
+            return False, None
+        with self._frame_condition:
+            if self._latest_frame is None:
+                self._frame_condition.wait(timeout=0.5)
+            if self._latest_frame is None:
+                return False, None
+            return True, self._latest_frame.copy()
+
     def read_rgb(self) -> Tuple[bool, Optional[np.ndarray]]:
         """Read frame as RGB (convenience method for Braitenberg code)."""
         success, bgr = self.read()

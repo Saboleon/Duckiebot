@@ -150,6 +150,11 @@ def switch_scene():
     return jsonify({'scene': target})
 
 
+@app.route('/ping')
+def ping():
+    return 'ok'
+
+
 @app.route('/snapshot')
 def snapshot():
     overlay = agent.get_overlay(max_age=0.3)
