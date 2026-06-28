@@ -1,5 +1,5 @@
 base_speed: 0.15
 curve_speed: 0
 d_gain: 0.3
-detection_threshold: 300
+detection_threshold: 150
 p_gain: 0.08

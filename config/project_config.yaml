@@ -68,8 +68,8 @@ sign_timeout_s: 30.0
 # 'cruise' should match that controller's base_speed for identical behaviour;
 # 'approach' is the slower speed used once a sign is in range.
 speed:
-  cruise: 0.24 # a little faster than the visual_lane_servoing base_speed
-  approach: 0.18 # slowed speed once a turn is queued / sign is in range
+  cruise: 0.15 # safe starting point for real bot — tune up once lane following is stable
+  approach: 0.12 # slowed speed once a turn is queued / sign is in range
 
 # colour range used only by the optional obstacle detector (duck/bot ahead)
 lane:
