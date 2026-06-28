@@ -121,15 +121,29 @@ class SignDetector:
         self.observe_px = float(det.get("observe_px", 28))
         self.act_px     = float(det.get("act_px", 72))
 
-        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
-        params = cv2.aruco.DetectorParameters()
-        self._detector = cv2.aruco.ArucoDetector(dictionary, params)
+        # Support both OpenCV 4.7+ (ArucoDetector class) and older versions
+        # (the Jetson JetPack SDK ships OpenCV 4.1-4.6).
+        try:
+            dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+            params = cv2.aruco.DetectorParameters()
+            self._detector = cv2.aruco.ArucoDetector(dictionary, params)
+            self._legacy_aruco = False
+        except AttributeError:
+            dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_APRILTAG_36h11)
+            params = cv2.aruco.DetectorParameters_create()
+            self._aruco_dict   = dictionary
+            self._aruco_params = params
+            self._detector     = None
+            self._legacy_aruco = True
 
     # -- detection ---------------------------------------------------------
     def detect(self, frame_bgr):
         """Return a list of SignObservation for every known tag in the frame."""
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-        corners, ids, _ = self._detector.detectMarkers(gray)
+        if self._legacy_aruco:
+            corners, ids, _ = cv2.aruco.detectMarkers(gray, self._aruco_dict, parameters=self._aruco_params)
+        else:
+            corners, ids, _ = self._detector.detectMarkers(gray)
         out = []
         if ids is None:
             return out
