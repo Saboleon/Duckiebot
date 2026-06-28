@@ -129,13 +129,15 @@ def apply_command(key, value):
 
 # ============================================================================
 def main(camera, wheels, leds, stop_event, sim=False):
-    global _cfg, _obstacle
+    global _cfg, _obstacle, _sign_detector_ok
     _cfg = _load_config(_CONFIG_FILE_SIM if sim else _CONFIG_FILE)
 
     _set_status(state="init", note="loading signs")
     _sign_detector_ok = True
     try:
         signs = SignDetector(_cfg, sim=sim)
+        print(f"[project] SignDetector OK: discovery={getattr(signs, 'discovery_mode', '?')}, "
+              f"legacy_aruco={getattr(signs, '_legacy_aruco', '?')}")
     except Exception as e:
         print(f"[project] SignDetector failed: {e}")
         _set_status(state="init", note=f"signs error: {e}")
@@ -394,14 +396,15 @@ def main(camera, wheels, leds, stop_event, sim=False):
 
             trig = stopline.trigger
             line_txt = f"line={line_frac:.3f}/{trig:.3f}"
+            tags_seen = len(observations)   # how many AprilTags the camera sees right now
             if pending_turn is not None:
                 _set_status(state="approach", turn=pending_turn, src=pending_src,
-                            line=round(line_frac, 3), **dbg)
+                            line=round(line_frac, 3), tags=tags_seen, **dbg)
                 _annotate(signs, lane, frame, observations, dbg,
                           f"approach -> {pending_turn}  {line_txt}")
             else:
-                _set_status(state="cruise", line=round(line_frac, 3), **dbg)
-                _annotate(signs, lane, frame, observations, dbg, f"cruise  {line_txt}")
+                _set_status(state="cruise", line=round(line_frac, 3), tags=tags_seen, **dbg)
+                _annotate(signs, lane, frame, observations, dbg, f"cruise  {line_txt}  tags={tags_seen}")
 
     except Exception as e:
         print(f"[project] agent error: {e}")
