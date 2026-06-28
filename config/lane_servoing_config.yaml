@@ -3,9 +3,5 @@ curve_speed: 0
 d_gain: 0.15
 detection_threshold: 150
 p_gain: 0.12
-# trim: positive = boost left / slow right = corrects leftward drift toward yellow line
-# increase in steps of 0.02 until straight-line tracking centres in the lane
-trim: 0.03
-# initial lane half-width in pixels (default 160 is tuned for sim)
-# fisheye cameras make the lane appear wider — increase if bot hugs the yellow line
-line_offset: 185
+trim: 0.0
+line_offset: 160
