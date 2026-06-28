@@ -34,9 +34,9 @@ from tasks.project.packages.lane_following import LaneFollower
 from tasks.project.packages.road_perception import StopLineDetector
 from tasks.project.packages.object_detection import ObstacleStopper
 
-_CONFIG_FILE = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "config", "project_config.yaml"
-))
+_CONFIG_DIR  = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "config"))
+_CONFIG_FILE      = os.path.join(_CONFIG_DIR, "project_config.yaml")
+_CONFIG_FILE_SIM  = os.path.join(_CONFIG_DIR, "project_config_sim.yaml")
 
 # ---- shared state, read by the server for /status and the video overlay -----
 _lock = threading.Lock()
@@ -125,7 +125,7 @@ def apply_command(key, value):
 # ============================================================================
 def main(camera, wheels, leds, stop_event, sim=False):
     global _cfg, _obstacle
-    _cfg = _load_config()
+    _cfg = _load_config(_CONFIG_FILE_SIM if sim else _CONFIG_FILE)
 
     _set_status(state="init", note="loading signs")
     try:
