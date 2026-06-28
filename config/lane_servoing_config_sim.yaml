@@ -1,7 +1,7 @@
 base_speed: 0.15
 curve_speed: 0
-d_gain: 0.38      # more damping -> less overshoot/zigzag
+d_gain: 0.3
 detection_threshold: 300
-p_gain: 0.065     # gentler correction -> smoother, less snappy weave
+p_gain: 0.08
 trim: 0.0
 line_offset: 160
