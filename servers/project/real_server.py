@@ -30,6 +30,10 @@ stop_event = threading.Event()
 
 
 def _visualize(frame):
+    # prefer the annotated overlay (lane lines, sign boxes, state text)
+    overlay = agent.get_overlay(max_age=0.5)
+    if overlay is not None:
+        return overlay
     if frame is not None:
         return frame
     blank = np.zeros((480, 640, 3), dtype=np.uint8)
