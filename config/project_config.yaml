@@ -5,7 +5,7 @@
 # no wheels, no obstacle model). Deploy + Start as usual, open the bot page, and
 # hold signs in front of the camera to read their tag IDs from the video + the
 # "discovered_sign_ids" status. Set back to false to drive normally.
-discovery_only: false
+discovery_only: true
 
 # Everything the agent reads at runtime lives here so it can be tuned
 # live from the dashboard (or by editing this file) without touching code.
@@ -43,12 +43,12 @@ signs_sim:
 # browser Status panel ("discovered_sign_ids") or the grey box on the video, then
 # fill the IDs in below and restart. Discovery turns OFF once any ID is added.
 signs_real:
-  stop: []
+  stop: [20, 24]
   yield: [39]
   pedestrian: []
-  t_right: []      # straight or right
-  t_left: []       # straight or left
-  t_junction: []   # left or right (road ends ahead)
+  t_right: [9]      # straight or right
+  t_left: [10]       # straight or left
+  t_junction: [11]   # left or right (road ends ahead)
   turn_left: []
   turn_right: []
   go_straight: []
