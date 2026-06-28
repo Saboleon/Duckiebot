@@ -206,8 +206,8 @@ let _videoErrors = 0;
     };
     next.onerror = function() {
         _videoErrors++;
-        // after 10 consecutive failures (~5 s) reload the page to reconnect
-        if (_videoErrors >= 10) { location.reload(); return; }
+        // after 30 consecutive failures (~15 s) reload the page to reconnect
+        if (_videoErrors >= 30) { location.reload(); return; }
         setTimeout(pollVideo, 500);
     };
     next.src = '/snapshot?' + Date.now();

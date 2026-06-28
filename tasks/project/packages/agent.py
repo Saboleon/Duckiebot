@@ -200,12 +200,17 @@ def main(camera, wheels, leds, stop_event, sim=False):
                 time.sleep(0.02)
                 continue
 
-            # paused: hold still but keep the video/overlay alive
+            # paused: hold still but still run sign detection so IDs can be discovered
             if _paused:
                 _drive(wheels, 0.0, 0.0)
                 leds_ctl.off()
+                obs_paused = signs.detect(frame)
+                for o in obs_paused:
+                    if o.sign_type == "unknown" and o.tag_id not in _discovered_ids:
+                        _discovered_ids[o.tag_id] = "unknown"
+                        print(f"[project] SIGN DISCOVERED: tag_id={o.tag_id}")
                 _set_status(state="paused")
-                _annotate(signs, lane, frame, [], {}, "paused")
+                _annotate(signs, lane, frame, obs_paused, {}, "paused")
                 time.sleep(0.03)
                 continue
 
