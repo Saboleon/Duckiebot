@@ -187,12 +187,22 @@ class ObjectDetectionAgent:
     def _try_cv2dnn(self):
         try:
             print("[ObjectDetection] Loading ONNX model via cv2.dnn...")
-            self.net          = cv2.dnn.readNetFromONNX(self.model_path)
+            net = cv2.dnn.readNetFromONNX(self.model_path)
+            # Validate with a dummy inference — YOLOv5 detect-head Reshape is
+            # incompatible with OpenCV DNN, so the load succeeds but forward()
+            # throws.  Better to catch it here than spam errors at runtime.
+            dummy = cv2.dnn.blobFromImage(
+                np.zeros((self.img_size, self.img_size, 3), dtype=np.uint8),
+                1 / 255.0, (self.img_size, self.img_size), swapRB=False,
+            )
+            net.setInput(dummy)
+            net.forward()
+            self.net          = net
             self._backend     = 'cv2dnn'
             self.model_loaded = True
             print(f"[ObjectDetection] Model ready (cv2.dnn, img_size={self.img_size}).")
         except Exception as e:
-            self.load_error = f"Failed to load ONNX model: {e}"
+            self.load_error = f"Failed to load ONNX model (cv2.dnn incompatible): {e}"
             print(f"[ObjectDetection] {self.load_error}")
 
     def _frame_skip(self) -> int:

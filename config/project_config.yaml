@@ -12,26 +12,38 @@
 #   10 -> side road on the LEFT             11 -> T-intersection (road ends)
 # ---------------------------------------------------------------------
 
-# tag id -> sign category
-signs:
+# ---- SIMULATION sign IDs (Godot map) ----------------------------------------
+# These are the tag36h11 IDs placed in the Godot scene. Used when running with
+# `python launch.py --sim --task project`.
+signs_sim:
   stop: [24, 25, 26]
   yield: [39]
   pedestrian: [20]
-  # intersection signs. The value is the list of turns they permit; at the
-  # intersection the agent picks ONE of these at random (project requirement).
-  t_right: [9] # straight or right
-  t_left: [10] # straight or left
+  t_right: [9]    # straight or right
+  t_left: [10]    # straight or left
   t_junction: [11] # left or right (road ends ahead)
-  # single-direction signs (custom IDs for OUR map - not standard Duckietown).
-  # Each permits exactly ONE turn, so the agent always drives that direction.
-  # These IDs are arbitrary: assign the matching tag36_11_000NN.png in the map
-  # editor, and print/stick the same tag on the real bot's sign if used there.
-  turn_left: [50] # mandatory left
-  turn_right: [51] # mandatory right
-  go_straight: [52] # mandatory straight ahead
-  yield_left: [54] # combined: yield (brief pause) AND then mandatory left
-  # parking: not an intersection. The bot pulls over (right signal) and stops.
+  turn_left: [50]
+  turn_right: [51]
+  go_straight: [52]
+  yield_left: [54]
   parking: [53]
+
+# ---- REAL BOT sign IDs (physical Duckietown track) --------------------------
+# Fill these in by reading the IDs off the real signs with the detector before
+# the demo (run the detector and note the tag_id printed on each sign).
+# Used when deploying with `python launch.py --run --bot <name> --task project`.
+signs_real:
+  stop: []          # e.g. [162, 169]
+  yield: []         # e.g. [166]
+  pedestrian: []    # e.g. [54]
+  t_right: []       # straight or right
+  t_left: []        # straight or left
+  t_junction: []    # left or right
+  turn_left: []
+  turn_right: []
+  go_straight: []
+  yield_left: []
+  parking: []
 
 # camera / tag geometry (only used for the on-screen distance estimate)
 camera:
@@ -111,6 +123,13 @@ obstacle:
   # lower = brake from farther away (we lowered it from 0.72 because the bot now
   # cruises faster and needs more stopping distance). raise it if it stops too early.
   stop_y_frac: 0.6
+  # duck bbox height must exceed this fraction of frame size to count — filters
+  # distant ducks. raise (e.g. 0.10) to ignore more far-away detections.
+  min_height_frac: 0.06
+  # duck center-x must be at or right of this fraction of frame width to count
+  # as being in our lane. ducks whose center is further left are assumed to be
+  # in the oncoming lane. raise (e.g. 0.40) if the bot still stops for oncoming ducks.
+  lane_x_min_frac: 0.30
 
 # right-of-way at yield/stop signs: the bot holds until crossing traffic clears,
 # detected via the object detector (camera-based, so it works in sim and on the

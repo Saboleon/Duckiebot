@@ -104,11 +104,11 @@ def apply_command(key, value):
 
 
 # ============================================================================
-def main(camera, wheels, leds, stop_event):
+def main(camera, wheels, leds, stop_event, sim=False):
     global _cfg, _obstacle
     _cfg = _load_config()
 
-    signs    = SignDetector(_cfg)
+    signs    = SignDetector(_cfg, sim=sim)
     lane     = LaneFollower(_cfg)
     stopline = StopLineDetector(_cfg)
     obstacle = ObstacleStopper(_cfg)

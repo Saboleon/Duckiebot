@@ -187,6 +187,7 @@ def main():
     threading.Thread(
         target=agent.main,
         args=(camera, wheels, leds, stop_event),
+        kwargs={'sim': True},
         daemon=True,
         name='AgentThread',
     ).start()

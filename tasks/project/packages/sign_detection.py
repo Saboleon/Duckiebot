@@ -87,15 +87,31 @@ class SignObservation:
 class SignDetector:
     """Reads traffic-sign AprilTags and maps them to sign categories."""
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, sim=True):
         cfg = config if config is not None else _load_config()
         self.cfg = cfg
 
+        # Pick the right sign-ID table: sim vs real bot, falling back to the
+        # other section if the preferred one is absent or all-empty.
+        if sim:
+            sign_cfg = cfg.get("signs_sim") or cfg.get("signs_real") or cfg.get("signs") or {}
+        else:
+            sign_cfg = cfg.get("signs_real") or cfg.get("signs_sim") or cfg.get("signs") or {}
+
         # build tag-id -> sign category lookup from the config
         self.id_to_sign = {}
-        for sign_type, ids in (cfg.get("signs") or {}).items():
-            for tag_id in ids:
+        for sign_type, ids in sign_cfg.items():
+            for tag_id in (ids or []):
                 self.id_to_sign[int(tag_id)] = sign_type
+
+        env = "sim" if sim else "real"
+        print(f"[SignDetector] mode={env}, {len(self.id_to_sign)} tag IDs loaded")
+
+        # Discovery mode: show unknown tag IDs on the video overlay so you can
+        # read them off the browser and fill in signs_real in the config.
+        # Auto-enabled on the real bot when signs_real has no IDs yet.
+        self.discovery_mode = (not sim) and (len(self.id_to_sign) == 0)
+        self._reported_ids = set()  # tracks IDs already printed, avoids spam
 
         cam = cfg.get("camera", {})
         self.tag_size_m = float(cam.get("tag_size_m", 0.065))
@@ -121,8 +137,11 @@ class SignDetector:
         for quad, tag_id in zip(corners, ids.flatten()):
             tag_id = int(tag_id)
             sign_type = self.id_to_sign.get(tag_id, UNKNOWN)
-            if sign_type == UNKNOWN:
+            if sign_type == UNKNOWN and not self.discovery_mode:
                 continue
+            if sign_type == UNKNOWN and tag_id not in self._reported_ids:
+                print(f"[SignDetector] DISCOVERY: tag_id={tag_id} (add to signs_real in project_config.yaml)")
+                self._reported_ids.add(tag_id)
             pts = quad.reshape(-1, 2)
             h = float(pts[:, 1].max() - pts[:, 1].min())
             if h <= 0:
@@ -162,10 +181,16 @@ class SignDetector:
         """Draw boxes + labels for detected signs (returns the same frame)."""
         for o in observations:
             pts = o.corners.astype(int)
-            close = o.height_px >= self.act_px
-            color = (0, 215, 255) if not close else (0, 0, 255)
+            if o.sign_type == UNKNOWN:
+                # discovery mode: grey box, just show the raw ID so it can be
+                # copied into signs_real in project_config.yaml
+                color = (160, 160, 160)
+                label = f"UNKNOWN tag_id={o.tag_id}"
+            else:
+                close = o.height_px >= self.act_px
+                color = (0, 215, 255) if not close else (0, 0, 255)
+                label = f"{o.sign_type} #{o.tag_id} {o.distance_m:.2f}m"
             cv2.polylines(frame_bgr, [pts], True, color, 2)
-            label = f"{o.sign_type} #{o.tag_id} {o.distance_m:.2f}m"
             x, y = pts[:, 0].min(), pts[:, 1].min()
             cv2.putText(frame_bgr, label, (x, max(12, y - 6)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)

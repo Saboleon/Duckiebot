@@ -33,6 +33,13 @@ class ObstacleStopper:
         # stops from farther away (needed at higher cruise speed). Default 0.72
         # matches the shared object_detection task.
         self.stop_y_frac = float(ocfg.get("stop_y_frac", 0.72))
+        # duck bbox height must exceed this fraction of frame size — filters out
+        # distant ducks whose bbox is tiny. Raise to ignore more far-away ducks.
+        self.min_height_frac = float(ocfg.get("min_height_frac", 0.06))
+        # duck center-x must be at or to the right of this fraction of frame width
+        # to count as being in our lane. Ducks whose center is left of this are
+        # assumed to be in the oncoming lane.
+        self.lane_x_min_frac = float(ocfg.get("lane_x_min_frac", 0.30))
         self.blocked = False
         self.reason = ""
 
@@ -169,11 +176,23 @@ class ObstacleStopper:
         return frame
 
     def _evaluate(self, dets, size):
-        """Stop if any detected duckie reaches our configurable proximity line.
-        Same rule as the shared should_stop() but with a tunable threshold so we
-        can brake earlier at higher speed. dets are already duckie-only."""
-        stop_y = size * self.stop_y_frac
+        """Stop if any duckie is close ahead AND in our lane.
+
+        Three filters before triggering a stop:
+          1. y2 > stop_y_frac  — duck must be low enough (close enough) in frame.
+          2. bbox height > min_height_frac — filters tiny/far-away detections.
+          3. center_x > lane_x_min_frac — ignores ducks clearly in oncoming lane.
+        """
+        stop_y    = size * self.stop_y_frac
+        min_h     = size * self.min_height_frac
+        lane_x    = size * self.lane_x_min_frac
+
         for (x1, y1, x2, y2), score, cls_id in dets:
+            if (y2 - y1) < min_h:
+                continue        # too far away (bbox too small)
+            cx = 0.5 * (x1 + x2)
+            if cx < lane_x:
+                continue        # in oncoming lane
             if y2 > stop_y:
                 return True, "duckie detected ahead"
         return False, ""
