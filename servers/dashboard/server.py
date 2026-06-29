@@ -12,14 +12,16 @@ Started automatically by the systemd service (duckiebot/dashboard.service).
 import os
 import sys
 import io
+import shutil
 import signal
 import subprocess
 import tarfile
 import threading
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOG_PATH = os.path.join(PROJECT_ROOT, 'last_task.log')
 
 app = Flask(__name__)
 
@@ -40,7 +42,30 @@ def deploy():
     except Exception as e:
         return jsonify({'error': f'extraction failed: {e}'}), 500
 
-    return jsonify({'message': 'deployed ok'})
+    # Purge stale bytecode. The tar restores the dev machine's file mtimes, so a
+    # redeployed .py can look "unchanged" to Python's .pyc freshness check and a
+    # stale __pycache__ entry gets loaded instead of the new source (this caused
+    # "cannot import name 'SignDetector'" even after redeploying). Removing the
+    # caches forces a clean recompile of whatever we just extracted.
+    removed = _purge_bytecode(PROJECT_ROOT)
+
+    return jsonify({'message': f'deployed ok ({removed} bytecode caches cleared)'})
+
+
+def _purge_bytecode(root):
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        if '__pycache__' in dirnames:
+            shutil.rmtree(os.path.join(dirpath, '__pycache__'), ignore_errors=True)
+            dirnames.remove('__pycache__')
+            count += 1
+        for name in filenames:
+            if name.endswith('.pyc'):
+                try:
+                    os.remove(os.path.join(dirpath, name))
+                except OSError:
+                    pass
+    return count
 
 
 @app.route('/start', methods=['POST'])
@@ -59,10 +84,54 @@ def start():
     with _task_lock:
         _kill_task()
         cmd = [sys.executable, server_path, '--port', str(port)]
-        kwargs = {} if debug else {'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
+        if debug:
+            kwargs = {}
+            log_path = None
+        else:
+            # Don't discard output to DEVNULL — when the task crashes on startup
+            # that swallows the traceback and it just looks like "ran, then died".
+            # Tee it to a log file so the crash reason is always recoverable.
+            log_path = LOG_PATH
+            log_f = open(log_path, 'wb')
+            kwargs = {'stdout': log_f, 'stderr': subprocess.STDOUT}
         _task_proc = subprocess.Popen(cmd, cwd=PROJECT_ROOT, **kwargs)
 
-    return jsonify({'pid': _task_proc.pid, 'port': port, 'task': task})
+    resp = {'pid': _task_proc.pid, 'port': port, 'task': task}
+    if log_path:
+        resp['log'] = log_path
+    return jsonify(resp)
+
+
+@app.route('/log')
+def log():
+    """Return the most recent task's captured output (its crash traceback lives
+    here when a task dies on startup). Open http://<bot>:8000/log in a browser.
+    Use ?tail=N to get only the last N bytes; add ?status=1 for JSON with the
+    task's alive/exit state alongside the log."""
+    if not os.path.isfile(LOG_PATH):
+        return Response('no task log yet — start a task first\n',
+                        mimetype='text/plain'), 404
+    try:
+        tail = int(request.args.get('tail', 0))
+    except (TypeError, ValueError):
+        tail = 0
+    with open(LOG_PATH, 'rb') as f:
+        if tail > 0:
+            try:
+                f.seek(-tail, os.SEEK_END)
+            except OSError:
+                f.seek(0)
+        body = f.read().decode('utf-8', 'replace')
+
+    if request.args.get('status'):
+        if _task_proc is None:
+            state = 'no task started'
+        elif _task_proc.poll() is None:
+            state = f'running (pid {_task_proc.pid})'
+        else:
+            state = f'exited (code {_task_proc.returncode})'
+        return jsonify({'task': state, 'log': body})
+    return Response(body, mimetype='text/plain')
 
 
 @app.route('/stop', methods=['POST'])

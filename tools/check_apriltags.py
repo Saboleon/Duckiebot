@@ -50,17 +50,17 @@ else:
 if backend is None:
     try:
         try:
-            from dt_apriltags import Detector
-            libname = "dt_apriltags"
-        except ImportError:
             from pupil_apriltags import Detector
             libname = "pupil_apriltags"
+        except ImportError:
+            from dt_apriltags import Detector
+            libname = "dt_apriltags"
         apriltag_det = Detector(families="tag36h11", nthreads=2)
         backend = "apriltag_lib"
         print(f"OK: using apriltag library ({libname})")
     except ImportError:
-        print("\nFAIL: no AprilTag backend available (no aruco, no dt_apriltags/pupil_apriltags).")
-        print("  -> install one on the bot:  pip3 install dt-apriltags")
+        print("\nFAIL: no AprilTag backend available (no aruco, no pupil_apriltags/dt_apriltags).")
+        print("  -> install one on the bot:  pip3 install pupil-apriltags")
         sys.exit(1)
 
 # ---- 2. camera -------------------------------------------------------------

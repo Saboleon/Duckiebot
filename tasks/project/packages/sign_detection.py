@@ -146,11 +146,22 @@ class SignDetector:
     @staticmethod
     def _init_apriltag_lib():
         """Build a tag36h11 detector from whichever apriltag library is installed.
-        Raises ImportError if none is available (caller falls back to dummy)."""
+        Raises ImportError if none is available (caller falls back to dummy).
+
+        Prefer pupil_apriltags: it's the maintained fork and pip-installs with
+        prebuilt wheels. dt_apriltags is Duckietown's old package that often
+        won't build on a modern Python, so it's only a secondary fallback."""
         try:
-            from dt_apriltags import Detector
+            from pupil_apriltags import Detector
         except ImportError:
-            from pupil_apriltags import Detector  # same API
+            try:
+                from dt_apriltags import Detector  # same API, legacy
+            except ImportError:
+                raise ImportError(
+                    "no AprilTag backend: cv2.aruco is missing and neither "
+                    "pupil_apriltags nor dt_apriltags is installed. "
+                    "Run on the bot:  pip3 install pupil-apriltags"
+                )
         return Detector(families="tag36h11", nthreads=2)
 
     # -- detection ---------------------------------------------------------
